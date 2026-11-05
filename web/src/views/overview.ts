@@ -63,7 +63,7 @@ export function createOverview(ctx: Ctx): View {
   }
 
   function welcome(): Child {
-    if (ctx.app.settings.source !== "demo" || readString(WELCOME_KEY)) return null;
+    if (ctx.app.store.kind !== "demo" || readString(WELCOME_KEY)) return null;
     const card = h(
       "section",
       { class: "welcome", attrs: { "aria-label": "Welcome" } },

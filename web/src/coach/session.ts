@@ -68,7 +68,7 @@ function snapshot(app: App): string {
     courses.pop();
     json = JSON.stringify(courses);
   }
-  return `<course_data today="${todayISO()}" source="${app.settings.source}">\n${json}\n</course_data>`;
+  return `<course_data today="${todayISO()}" source="${app.store.kind}">\n${json}\n</course_data>`;
 }
 
 /**

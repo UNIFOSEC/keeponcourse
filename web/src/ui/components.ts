@@ -12,6 +12,7 @@ export interface Ctx {
   coach: CoachSession;
   openCourse(course?: Course): void;
   openSettings(): void;
+  openAccount(): void;
 }
 
 export interface View {

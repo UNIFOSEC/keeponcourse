@@ -79,6 +79,20 @@ export function createAbout(ctx: Ctx): View {
     ),
 
     section(
+      "user",
+      "Accounts, privately",
+      h(
+        "ul",
+        { class: "checklist" },
+        item("Passwordless sign-in with one-time email links (PKCE flow), so there are no passwords to steal or reuse."),
+        item("Postgres row-level security: the database itself guarantees each person can only see and change their own courses."),
+        item("Least-privilege grants: the app can write only the editable fields; ids, owners and timestamps are set by the database."),
+        item("The database enforces the same limits as the app, plus a per-account cap, so a modified client can't bypass them."),
+        item("Export your data any time, and delete your account and all of its courses yourself."),
+      ),
+    ),
+
+    section(
       "sparkles",
       "Coach, safely",
       h(
@@ -106,10 +120,13 @@ export function createAbout(ctx: Ctx): View {
   );
 
   function update() {
+    const kind = ctx.app.store.kind;
     sourceLine.textContent =
-      ctx.app.settings.source === "demo"
-        ? "You're currently using demo data stored in this browser."
-        : `You're currently connected to ${ctx.app.settings.apiUrl}.`;
+      kind === "account"
+        ? "You're signed in: your courses are stored in your account and synced across devices."
+        : kind === "demo"
+          ? "You're currently using demo data stored in this browser."
+          : `You're currently connected to ${ctx.app.settings.apiUrl}.`;
   }
 
   update();

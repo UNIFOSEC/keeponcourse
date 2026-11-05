@@ -3,7 +3,7 @@ import { readJSON, writeJSON } from "./storage";
 
 /** Everything the UI needs from a data source. Demo and API modes both implement it. */
 export interface CourseStore {
-  readonly kind: "demo" | "api";
+  readonly kind: "demo" | "api" | "account";
   list(): Promise<Course[]>;
   create(input: CourseInput): Promise<Course>;
   update(id: number, patch: Partial<CourseInput>): Promise<Course>;

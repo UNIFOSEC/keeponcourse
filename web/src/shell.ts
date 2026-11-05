@@ -1,12 +1,15 @@
+import { accountsEnabled } from "./account";
 import type { App } from "./app";
 import { CoachSession } from "./coach/session";
+import { createAccountDialog } from "./ui/accountDialog";
 import type { Ctx, View } from "./ui/components";
 import { createCoursePanel } from "./ui/coursePanel";
 import { h, isTypingTarget } from "./ui/dom";
 import { icon, logo, type IconName } from "./ui/icons";
+import { createImportDialog } from "./ui/importDialog";
 import { createSettingsDialog } from "./ui/settingsDialog";
 import { themeToggle } from "./ui/theme";
-import { initToasts } from "./ui/toast";
+import { initToasts, toast } from "./ui/toast";
 import { createAbout } from "./views/about";
 import { createCoach } from "./views/coach";
 import { createCourses } from "./views/courses";
@@ -34,7 +37,15 @@ export function mountShell(root: HTMLElement, app: App): void {
   const panel = createCoursePanel(app);
   const settings = createSettingsDialog(app);
   const coach = new CoachSession(app);
-  const ctx: Ctx = { app, coach, openCourse: (course) => panel.open(course), openSettings: () => settings.open() };
+  const accountDialog = createAccountDialog(app, app.account, () => coach.reset());
+  const importDialog = createImportDialog(app);
+  const ctx: Ctx = {
+    app,
+    coach,
+    openCourse: (course) => panel.open(course),
+    openSettings: () => settings.open(),
+    openAccount: () => accountDialog.open(),
+  };
 
   const main = h("main", { class: "main", attrs: { id: "main", tabindex: -1 } });
 
@@ -46,6 +57,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   };
 
   const sourceBtn = h("button", { class: "sidebar-btn source-btn", attrs: { type: "button" }, on: { click: () => settings.open() } });
+  const accountBtn = h("button", { class: "sidebar-btn account-btn", attrs: { type: "button" }, on: { click: () => accountDialog.open() } });
 
   const sidebar = h(
     "aside",
@@ -59,28 +71,59 @@ export function mountShell(root: HTMLElement, app: App): void {
       navLink("coach", "sparkles"),
       navLink("about", "info"),
     ),
-    h("div", { class: "sidebar-footer" }, sourceBtn, themeToggle()),
+    h("div", { class: "sidebar-footer" }, accountsEnabled && accountBtn, sourceBtn, themeToggle()),
   );
 
   const skipLink = h("button", { class: "skip-link", attrs: { type: "button" }, on: { click: () => main.focus() } }, "Skip to content");
 
-  root.replaceChildren(skipLink, h("div", { class: "app" }, sidebar, main), panel.el, settings.el);
+  root.replaceChildren(skipLink, h("div", { class: "app" }, sidebar, main), panel.el, settings.el, accountDialog.el, importDialog.el);
   initToasts(document.body);
 
   function renderSource() {
-    const demo = app.settings.source === "demo";
+    const kind = app.store.kind;
+    const meta = {
+      account: { icon: "cloud", text: "Your account · synced", label: "your account, synced" },
+      demo: { icon: "database", text: "Demo · this browser", label: "demo data in this browser" },
+      api: { icon: "server", text: "Local API", label: "local API" },
+    } as const;
     sourceBtn.replaceChildren(
-      icon(demo ? "database" : "server", 18),
-      h(
-        "span",
-        { class: "label source-label" },
-        h("span", { class: "source-kicker" }, "Data source"),
-        h("span", {}, demo ? "Demo · this browser" : "Local API"),
-      ),
+      icon(meta[kind].icon, 18),
+      h("span", { class: "label source-label" }, h("span", { class: "source-kicker" }, "Data source"), h("span", {}, meta[kind].text)),
     );
-    sourceBtn.setAttribute("aria-label", `Data source: ${demo ? "demo data in this browser" : "local API"}. Click to change.`);
+    sourceBtn.setAttribute("aria-label", `Data source: ${meta[kind].label}. Click to change.`);
     sourceBtn.title = "Change data source";
   }
+
+  function renderAccount() {
+    const state = app.account.state;
+    if (state.status === "signed-in") {
+      accountBtn.replaceChildren(
+        h("span", { class: "account-avatar account-avatar-sm" }, (state.email[0] ?? "?").toUpperCase()),
+        h("span", { class: "label account-label" }, state.email),
+      );
+      accountBtn.setAttribute("aria-label", `Signed in as ${state.email}. Open account.`);
+    } else {
+      accountBtn.replaceChildren(icon("user", 18), h("span", { class: "label" }, state.status === "loading" ? "Signing in…" : "Sign in · sync courses"));
+      accountBtn.setAttribute("aria-label", "Sign in to sync your courses");
+    }
+    accountBtn.title = accountBtn.getAttribute("aria-label") ?? "";
+  }
+
+  // A different person (or no one) is signed in: start a fresh Coach chat,
+  // and offer to bring demo courses into a new, empty account
+  let lastUser: string | null | undefined;
+  app.account.subscribe(() => {
+    const state = app.account.state;
+    if (state.status === "loading") return;
+    const user = state.status === "signed-in" ? state.userId : null;
+    if (lastUser !== undefined && user !== lastUser) coach.reset();
+    lastUser = user;
+    if (state.status === "signed-out" && state.error) {
+      toast(state.error, { tone: "error" });
+    }
+    renderAccount();
+  });
+  app.subscribe(() => importDialog.maybeOffer());
 
   let view: View | null = null;
   let route: Route | null = null;
@@ -125,5 +168,6 @@ export function mountShell(root: HTMLElement, app: App): void {
   });
 
   renderSource();
+  renderAccount();
   navigate();
 }

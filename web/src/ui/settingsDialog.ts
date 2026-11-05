@@ -74,6 +74,13 @@ export function createSettingsDialog(app: App) {
     resetBtn,
   );
 
+  const signedInNote = h(
+    "p",
+    { class: "notice-box" },
+    icon("cloud", 18),
+    h("span", {}, "You're signed in, so your courses sync to your account. These options apply when you're signed out."),
+  );
+
   const saveBtn = h("button", { class: "btn btn-primary", attrs: { type: "submit" } }, "Save");
   const form = h(
     "form",
@@ -87,6 +94,7 @@ export function createSettingsDialog(app: App) {
     h(
       "div",
       { class: "modal-body" },
+      signedInNote,
       h("fieldset", { class: "source-options" }, h("legend", { class: "sr-only" }, "Where courses are stored"), demo.el, api.el),
       apiFields,
       demoFields,
@@ -118,7 +126,8 @@ export function createSettingsDialog(app: App) {
     demo.input.checked = source === "demo";
     api.input.checked = source === "api";
     apiFields.hidden = source !== "api";
-    demoFields.hidden = source !== "demo";
+    demoFields.hidden = source !== "demo" || app.account.signedIn;
+    signedInNote.hidden = !app.account.signedIn;
   }
 
   function disarmReset() {
@@ -182,7 +191,9 @@ export function createSettingsDialog(app: App) {
     }
     dialog.close();
     await app.applySettings({ source, apiUrl });
-    if (app.loadState === "ready") {
+    if (app.account.signedIn) {
+      toast("Saved. It applies when you sign out.", { tone: "success" });
+    } else if (app.loadState === "ready") {
       toast(source === "api" ? "Connected to the local API" : "Using demo data", { tone: "success" });
     }
   }

@@ -1,3 +1,5 @@
+import type { Account } from "./account";
+import { AccountStore } from "./data/accountStore";
 import { ApiStore } from "./data/apiStore";
 import { DemoStore } from "./data/demoStore";
 import { loadSettings, saveSettings, type CourseStore, type Settings } from "./data/store";
@@ -15,6 +17,8 @@ export function errorMessage(error: unknown): string {
 
 /**
  * App state: the course list plus the data source it came from.
+ * Signed in, courses come from the user's account; signed out, from the
+ * data source in settings (demo data or the local API).
  * Views subscribe and re-render on every change.
  */
 export class App {
@@ -25,6 +29,28 @@ export class App {
   loadError = "";
   private listeners = new Set<() => void>();
   private loadSeq = 0;
+  private accountUser: string | null = null;
+
+  constructor(readonly account: Account) {}
+
+  /** Switches to the account's courses on sign-in, and back on sign-out. */
+  async syncWithAccount(): Promise<void> {
+    const state = this.account.state;
+    const userId = state.status === "signed-in" ? state.userId : null;
+    if (state.status === "loading") return;
+    if (userId === this.accountUser && this.loadState !== "loading") return;
+    this.accountUser = userId;
+    this.store = userId ? new AccountStore(await this.account.db()) : createStore(this.settings);
+    await this.load();
+  }
+
+  /** Copies the browser's demo courses into the signed-in account. */
+  async importDemoCourses(): Promise<number> {
+    if (!(this.store instanceof AccountStore)) return 0;
+    const count = await this.store.importMany(await new DemoStore().list());
+    await this.load();
+    return count;
+  }
 
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
@@ -93,6 +119,7 @@ export class App {
   async applySettings(settings: Settings): Promise<void> {
     this.settings = settings;
     saveSettings(settings);
+    if (this.account.signedIn) return; // takes effect after signing out
     this.store = createStore(settings);
     await this.load();
   }
