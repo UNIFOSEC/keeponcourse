@@ -52,6 +52,23 @@ export function createCoach(ctx: Ctx): View {
   });
   const sendBtn = h("button", { class: "composer-send", attrs: { type: "button" }, on: { click: () => (coach.busy ? coach.stop() : submit()) } });
   const counter = h("span", { class: "composer-counter", attrs: { "aria-live": "polite" } });
+  const usageEl = h("span", { class: "composer-usage" });
+
+  function renderUsage() {
+    const usage = coach.usage;
+    if (!usage) {
+      usageEl.replaceChildren();
+      return;
+    }
+    const text = usage.signedIn
+      ? `${usage.remaining} of ${usage.limit} messages left today`
+      : `${usage.remaining} of ${usage.limit} free messages left today`;
+    usageEl.classList.toggle("is-low", usage.remaining <= Math.max(2, Math.floor(usage.limit * 0.2)));
+    usageEl.replaceChildren(text);
+    if (!usage.signedIn && app.account.state.status !== "disabled") {
+      usageEl.append(h("button", { class: "link-btn", attrs: { type: "button" }, on: { click: () => ctx.openAccount() } }, "Sign in for more"));
+    }
+  }
 
   function autosize() {
     input.style.height = "auto";
@@ -66,6 +83,7 @@ export function createCoach(ctx: Ctx): View {
   }
 
   function renderComposer() {
+    renderUsage();
     const busy = coach.busy;
     sendBtn.replaceChildren(icon(busy ? "stop" : "arrowUp", 18));
     sendBtn.setAttribute("aria-label", busy ? "Stop" : "Send");
@@ -283,7 +301,7 @@ export function createCoach(ctx: Ctx): View {
           "div",
           { class: "composer" },
           h("div", { class: "composer-box" }, input, sendBtn),
-          h("div", { class: "composer-foot" }, h("span", {}, "Enter to send · Shift+Enter for a new line"), counter),
+          h("div", { class: "composer-foot" }, h("span", {}, "Enter to send · Shift+Enter for a new line"), usageEl, counter),
         ),
         announcer,
       ),
@@ -306,6 +324,7 @@ export function createCoach(ctx: Ctx): View {
 
   const unsubscribe = coach.subscribe(update);
   update();
+  void coach.refreshUsage();
   // Focus the composer on desktop; on touch devices that would pop up the keyboard unasked
   if (matchMedia("(pointer: fine)").matches) requestAnimationFrame(() => input.focus());
   return { el, update, destroy: unsubscribe };

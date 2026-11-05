@@ -32,9 +32,21 @@ function readDevVars() {
 }
 
 const hits = new Map();
+const kv = new Map();
 const env = {
   ALLOWED_ORIGINS: process.env.ALLOWED_ORIGINS ?? "http://localhost:5173,http://localhost:4173",
+  USER_DAILY_LIMIT: process.env.USER_DAILY_LIMIT ?? "60",
+  ANON_DAILY_LIMIT: process.env.ANON_DAILY_LIMIT ?? "15",
   ...readDevVars(),
+  // In-memory stand-in for the COACH_USAGE KV namespace (resets on restart)
+  COACH_USAGE: {
+    async get(key) {
+      return kv.get(key) ?? null;
+    },
+    async put(key, value) {
+      kv.set(key, value);
+    },
+  },
   CHAT_LIMITER: {
     async limit({ key }) {
       const now = Date.now();

@@ -84,6 +84,8 @@ export class CoachSession {
   phase: Phase = "idle";
   /** Text to put back in the composer after a send that failed without side effects. */
   restoredDraft: string | null = null;
+  /** Today's Coach allowance, from the proxy (null until known). */
+  usage: { limit: number; remaining: number; signedIn: boolean } | null = null;
 
   private history: MessageParam[] = [];
   private controller: AbortController | null = null;
@@ -105,6 +107,47 @@ export class CoachSession {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /** Asks the proxy how many messages are left today (counts nothing). */
+  async refreshUsage(): Promise<void> {
+    if (!this.configured) return;
+    try {
+      const response = await this.fetchWithAuth("/usage", { method: "GET" });
+      if (!response.ok) return;
+      const body = (await response.json()) as { limit: number; remaining: number; signedIn: boolean };
+      this.usage = { limit: body.limit, remaining: body.remaining, signedIn: body.signedIn };
+      this.emit();
+    } catch {
+      // Not critical: the count shows up after the next message
+    }
+  }
+
+  /**
+   * Calls the proxy, sending the user's sign-in token when signed in. If the
+   * token was rejected as expired, refreshes it once and retries.
+   */
+  private async fetchWithAuth(path: string, init: RequestInit): Promise<Response> {
+    const send = async (token: string | null) =>
+      fetch(`${COACH_URL}${path}`, {
+        ...init,
+        headers: { ...(init.headers as Record<string, string>), ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+      });
+    const token = await this.app.account.accessToken();
+    const response = await send(token);
+    if (response.status === 401 && token) {
+      const fresh = await this.app.account.accessToken(true);
+      if (fresh && fresh !== token) return send(fresh);
+    }
+    return response;
+  }
+
+  private readUsageHeaders(response: Response) {
+    const limit = Number(response.headers.get("X-Coach-Limit"));
+    const remaining = Number(response.headers.get("X-Coach-Remaining"));
+    if (Number.isFinite(limit) && limit > 0 && Number.isFinite(remaining)) {
+      this.usage = { limit, remaining, signedIn: this.app.account.signedIn };
+    }
   }
 
   async send(input: string): Promise<void> {
@@ -197,8 +240,10 @@ export class CoachSession {
     this.items = [];
     this.history = [];
     this.restoredDraft = null;
+    this.usage = null;
     this.save();
     this.emit();
+    void this.refreshUsage(); // a different person may be signed in now
   }
 
   async undo(itemId: string): Promise<void> {
@@ -216,7 +261,7 @@ export class CoachSession {
   ): Promise<{ stop_reason: string | null; content: ContentBlock[]; itemId?: string }> {
     let response: Response;
     try {
-      response = await fetch(`${COACH_URL}/chat`, {
+      response = await this.fetchWithAuth("/chat", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages }),
@@ -234,8 +279,12 @@ export class CoachSession {
       } catch {
         // not JSON
       }
+      if (body?.code === "quota" || body?.code === "quota_anon") {
+        this.usage = { limit: this.usage?.limit ?? 0, remaining: 0, signedIn: this.app.account.signedIn };
+      }
       throw new CoachError(body?.error ?? `Coach request failed (HTTP ${response.status}).`, body?.code);
     }
+    this.readUsageHeaders(response);
 
     let item: Extract<Item, { kind: "assistant" }> | null = null;
     const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();

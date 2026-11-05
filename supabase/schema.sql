@@ -94,3 +94,49 @@ end $$;
 
 revoke all on function public.delete_my_account() from public, anon;
 grant execute on function public.delete_my_account() to authenticated;
+
+-- ------------------------------------------------------------ coach usage
+
+-- Daily Coach message counts for signed-in users. Nobody can read or write
+-- this table directly; the Coach proxy calls the functions below with the
+-- user's own sign-in token, so each user can only ever count against
+-- themselves. Days are in UTC.
+create table if not exists public.coach_usage (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  day     date not null,
+  count   integer not null default 0 check (count >= 0),
+  primary key (user_id, day)
+);
+
+alter table public.coach_usage enable row level security;
+revoke all on public.coach_usage from anon, authenticated;
+
+-- Counts one Coach message for the caller and returns today's total
+create or replace function public.use_coach_message()
+returns integer language plpgsql security definer set search_path = '' as $$
+declare
+  used integer;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  insert into public.coach_usage (user_id, day, count)
+  values (auth.uid(), (now() at time zone 'utc')::date, 1)
+  on conflict (user_id, day) do update set count = public.coach_usage.count + 1
+  returning count into used;
+  return used;
+end $$;
+
+-- Today's total for the caller, without counting anything
+create or replace function public.coach_messages_used()
+returns integer language sql stable security definer set search_path = '' as $$
+  select coalesce(
+    (select count from public.coach_usage
+      where user_id = auth.uid() and day = (now() at time zone 'utc')::date),
+    0);
+$$;
+
+revoke all on function public.use_coach_message() from public, anon;
+revoke all on function public.coach_messages_used() from public, anon;
+grant execute on function public.use_coach_message() to authenticated;
+grant execute on function public.coach_messages_used() to authenticated;

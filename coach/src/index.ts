@@ -13,9 +13,10 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { SYSTEM_PROMPT, TOOLS } from "./prompt";
+import { peekUsage, useMessage, UsageError, type Usage, type UsageEnv } from "./usage";
 import { RequestError, validateMessages } from "./validate";
 
-export interface Env {
+export interface Env extends UsageEnv {
   ANTHROPIC_API_KEY: string;
   /** Comma-separated list, e.g. "https://unifosec.github.io,http://localhost:5173" */
   ALLOWED_ORIGINS: string;
@@ -48,6 +49,18 @@ export default {
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, model: model(env) }, 200, cors);
     }
+
+    // Today's allowance, for the app's "N messages left today"
+    if (url.pathname === "/usage" && request.method === "GET") {
+      if (!origin) return json({ error: "This origin isn't allowed to use Coach.", code: "forbidden" }, 403);
+      try {
+        const usage = await peekUsage(request, env);
+        return json(usageBody(usage), 200, cors);
+      } catch (error) {
+        return usageErrorResponse(error, cors);
+      }
+    }
+
     if (url.pathname !== "/chat") return json({ error: "Not found" }, 404, cors);
     if (request.method !== "POST") return json({ error: "Use POST" }, 405, cors);
 
@@ -83,9 +96,31 @@ export default {
       return json({ error: message, code: "bad_request" }, 400, cors);
     }
 
-    return streamReply(messages, env, cors, ctx);
+    // Count the message only once the request is known to be valid
+    let usage: Usage;
+    try {
+      usage = await useMessage(request, env);
+    } catch (error) {
+      return usageErrorResponse(error, cors);
+    }
+
+    return streamReply(messages, env, { ...cors, ...usageHeaders(usage) }, ctx);
   },
 } satisfies ExportedHandler<Env>;
+
+function usageBody(usage: Usage) {
+  return { signedIn: usage.signedIn, limit: usage.limit, used: usage.used, remaining: Math.max(0, usage.limit - usage.used) };
+}
+
+function usageHeaders(usage: Usage): Record<string, string> {
+  return { "X-Coach-Limit": String(usage.limit), "X-Coach-Remaining": String(Math.max(0, usage.limit - usage.used)) };
+}
+
+function usageErrorResponse(error: unknown, cors: Record<string, string>): Response {
+  if (error instanceof UsageError) return json({ error: error.message, code: error.code }, error.status, cors);
+  console.error("Usage check failed:", error);
+  return json({ error: "Coach is temporarily unavailable. Try again shortly.", code: "unavailable" }, 503, cors);
+}
 
 function model(env: Env): string {
   return env.COACH_MODEL?.trim() || DEFAULT_MODEL;
@@ -210,7 +245,8 @@ function corsHeaders(origin: string | null): Record<string, string> {
   return {
     "Access-Control-Allow-Origin": origin,
     "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Access-Control-Expose-Headers": "X-Coach-Limit, X-Coach-Remaining",
     Vary: "Origin",
   };
 }

@@ -118,6 +118,14 @@ export class Account {
     }
   }
 
+  /** The signed-in user's access token (for Coach), or null when signed out. */
+  async accessToken(forceRefresh = false): Promise<string | null> {
+    if (!this.signedIn) return null;
+    const sb = await client();
+    const { data } = forceRefresh ? await sb.auth.refreshSession() : await sb.auth.getSession();
+    return data.session?.access_token ?? null;
+  }
+
   async signOut(): Promise<void> {
     const sb = await client();
     await sb.auth.signOut();
