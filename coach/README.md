@@ -1,6 +1,6 @@
 # Coach proxy
 
-Coach is CodeCraftHub's AI learning assistant, built on Claude. This folder holds the small server behind it: a **Cloudflare Worker** that keeps the Claude API key secret and streams Claude's replies to the web app.
+Coach is KeepOnCourse's AI study coach, built on Claude. This folder holds the small server behind it: a **Cloudflare Worker** that keeps the Claude API key secret and streams Claude's replies to the web app.
 
 A browser can't safely hold an API key, so the web app sends the conversation here. The Worker checks the request, adds a fixed system prompt and tools, calls Claude, and streams the reply back.
 
@@ -71,7 +71,7 @@ npx wrangler secret put ANTHROPIC_API_KEY
 npx wrangler deploy
 ```
 
-1. Wrangler prints the Worker URL, for example `https://codecrafthub-coach.<you>.workers.dev`.
+1. Wrangler prints the Worker URL, for example `https://<worker-name>.<you>.workers.dev`.
 2. Put that URL in `web/.env.production` as `VITE_COACH_URL`, then rebuild the web app. The build adds the URL to the page's Content Security Policy automatically.
 3. Make sure your site's origin (for example `https://unifosec.github.io`) is in `ALLOWED_ORIGINS` in `wrangler.jsonc`.
 

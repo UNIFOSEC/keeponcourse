@@ -8,7 +8,10 @@ export function createAbout(ctx: Ctx): View {
   const el = h(
     "div",
     { class: "page about" },
-    pageHeader("About CodeCraftHub", "A learning planner for developers, built as a full-stack portfolio project."),
+    pageHeader(
+      "About KeepOnCourse",
+      "An AI coach that helps anyone finish the courses they start, from online classes to university modules to certifications.",
+    ),
 
     section(
       "flag",

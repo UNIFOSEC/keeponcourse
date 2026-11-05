@@ -5,14 +5,14 @@ type SeedRow = [name: string, description: string, dueInDays: number, status: St
 
 // Dates are relative to today, so the demo never looks stale.
 const ROWS: SeedRow[] = [
-  ["Git & GitHub Workflows", "Branching strategies, pull requests, rebasing, and resolving merge conflicts with confidence.", -12, "Completed", 70],
-  ["SQL for Developers", "Joins, indexes, and query plans: write queries that stay fast as data grows.", -30, "Completed", 90],
-  ["TypeScript Fundamentals", "Types, generics, and narrowing: make refactors safe in real-world codebases.", 9, "In Progress", 40],
-  ["REST API Design with Express", "Resource modelling, validation, status codes, and consistent error responses.", 21, "In Progress", 35],
-  ["Testing with Playwright", "End-to-end tests for web apps: locators, fixtures, and running them in CI.", -3, "Not Started", 28],
-  ["Web Application Security", "The OWASP Top 10 in practice: injection, broken access control, XSS, and how to prevent them.", 45, "Not Started", 20],
-  ["Docker & Containers", "Images, multi-stage builds, and docker compose for local development.", 60, "Not Started", 14],
-  ["System Design Basics", "Caching, queues, and scaling patterns, with trade-offs explained through real examples.", 90, "In Progress", 7],
+  ["Python for Beginners", "Variables, loops and functions, ending with three small automation projects.", -12, "Completed", 70],
+  ["Digital Photography Basics", "Exposure, composition and editing, shooting one themed photo set each week.", -30, "Completed", 90],
+  ["Intro to Statistics", "Probability, distributions and hypothesis testing, practiced on real data sets.", 9, "In Progress", 40],
+  ["Conversational Spanish", "Everyday conversations, past tenses and 500 core words, with weekly speaking practice.", 21, "In Progress", 35],
+  ["Project Management Fundamentals", "Planning, scheduling, risk and stakeholder communication, preparing for a certification exam.", -3, "Not Started", 28],
+  ["Personal Finance 101", "Budgeting, saving, credit and investing basics for building lasting money habits.", 45, "Not Started", 20],
+  ["UX Design Foundations", "User research, wireframes and usability testing, ending with a portfolio case study.", 60, "Not Started", 14],
+  ["Public Speaking", "Structuring a talk, handling nerves and delivering with confidence, with recorded practice runs.", 90, "In Progress", 7],
 ];
 
 export function seedCourses(): Course[] {

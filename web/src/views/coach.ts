@@ -12,7 +12,7 @@ const SUGGESTIONS = [
   "What should I focus on this week?",
   "Which courses are overdue, and how do I catch up?",
   "Make me a 4-week plan for my in-progress courses",
-  "Add a course on Rust, due in 3 months",
+  "Add an Excel course, due in 3 months",
 ];
 
 export function createCoach(ctx: Ctx): View {

@@ -1,5 +1,5 @@
 /**
- * Coach proxy for CodeCraftHub (Cloudflare Worker).
+ * Coach proxy for KeepOnCourse (Cloudflare Worker).
  *
  * The browser can't hold a Claude API key, so it sends the conversation here.
  * This Worker checks where the request came from, rate-limits it, validates it,

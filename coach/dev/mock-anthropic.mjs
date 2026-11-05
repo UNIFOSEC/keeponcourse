@@ -85,8 +85,8 @@ function script(messages) {
           id: `toolu_mock_${counter}`,
           name: "add_course",
           input: {
-            name: "Rust for Web Developers",
-            description: "Ownership, borrowing and async Rust, applied to building a small web API.",
+            name: "Data Analysis with Excel",
+            description: "Formulas, pivot tables and charts for turning raw data into clear reports.",
             target_date: addDays(today, 90),
             status: "Not Started",
           },

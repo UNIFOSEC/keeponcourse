@@ -1,8 +1,8 @@
-# CodeCraftHub web app
+# KeepOnCourse web app
 
-A learning planner for developers. You track courses from **Not Started** to **Completed** on a drag-and-drop board, see your progress and upcoming deadlines at a glance, and manage everything from a slide-over panel.
+KeepOnCourse helps anyone finish the courses they start. You track courses from **Not Started** to **Completed** on a drag-and-drop board, see your progress and upcoming deadlines at a glance, and chat with Coach, an AI study coach, to plan and catch up.
 
-This is the v2 front end for the CodeCraftHub API in the parent folder. It's a TypeScript app built with Vite, with no UI framework, and it builds to a static site that can be hosted anywhere, including GitHub Pages.
+It's a TypeScript app built with Vite, with no UI framework. It builds to a static site that can be hosted anywhere, including GitHub Pages, and it can also use the course API in the parent folder.
 
 ## Features
 
@@ -50,7 +50,7 @@ npm run build     # type-check + production build into dist/
 npm run preview   # serve dist/ locally to check it
 ```
 
-`dist/` is a static site that uses relative paths, so it works from any sub-path, such as `https://<user>.github.io/codecrafthub/`.
+`dist/` is a static site that uses relative paths, so it works from any sub-path, such as `https://<user>.github.io/keeponcourse/`.
 
 ## How it's built
 

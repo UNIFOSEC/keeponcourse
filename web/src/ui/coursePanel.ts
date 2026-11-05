@@ -21,7 +21,7 @@ export function createCoursePanel(app: App) {
 
   const name = h("input", {
     class: "input",
-    attrs: { id: "f-name", name: "name", maxlength: LIMITS.name, autocomplete: "off", placeholder: "e.g. Rust for Web Developers" },
+    attrs: { id: "f-name", name: "name", maxlength: LIMITS.name, autocomplete: "off", placeholder: "e.g. Intro to Statistics" },
   });
   const description = h("textarea", {
     class: "input textarea",

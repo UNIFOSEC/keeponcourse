@@ -92,7 +92,7 @@ export function icon(name: IconName, size = 18): SVGSVGElement {
 
 let logoCount = 0;
 
-/** The CodeCraftHub mark: </> on a violet gradient tile. */
+/** The KeepOnCourse mark: a compass on a violet gradient tile. */
 export function logo(size = 30): SVGSVGElement {
   const id = `cch-logo-${++logoCount}`;
   const svg = svgEl("svg", { viewBox: "0 0 32 32", width: size, height: size, "aria-hidden": "true", class: "logo" });
@@ -103,14 +103,10 @@ export function logo(size = 30): SVGSVGElement {
   svg.append(
     defs,
     svgEl("rect", { width: 32, height: 32, rx: 8, fill: `url(#${id})` }),
-    svgEl("path", {
-      d: "M12 10.5 6.5 16l5.5 5.5M20 10.5l5.5 5.5-5.5 5.5M17.5 8.5l-3 15",
-      fill: "none",
-      stroke: "#fff",
-      "stroke-width": 2.4,
-      "stroke-linecap": "round",
-      "stroke-linejoin": "round",
-    }),
+    svgEl("circle", { cx: 16, cy: 16, r: 9.5, fill: "none", stroke: "#fff", "stroke-width": 2.2 }),
+    // Compass needle pointing north-east: "on course"
+    svgEl("path", { d: "M20.6 11.4 18.2 18.2 11.4 20.6 13.8 13.8Z", fill: "#fff" }),
+    svgEl("circle", { cx: 16, cy: 16, r: 1.4, fill: `url(#${id})` }),
   );
   return svg;
 }

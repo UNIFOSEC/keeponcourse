@@ -50,7 +50,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   const sidebar = h(
     "aside",
     { class: "sidebar" },
-    h("a", { class: "brand", attrs: { href: "#/", "aria-label": "CodeCraftHub home" } }, logo(30), h("span", { class: "brand-name" }, "CodeCraftHub")),
+    h("a", { class: "brand", attrs: { href: "#/", "aria-label": "KeepOnCourse home" } }, logo(30), h("span", { class: "brand-name" }, "KeepOnCourse")),
     h(
       "nav",
       { class: "nav", attrs: { "aria-label": "Main" } },
@@ -96,7 +96,7 @@ export function mountShell(root: HTMLElement, app: App): void {
       if (r === next) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     }
-    document.title = `${TITLES[next]} · CodeCraftHub`;
+    document.title = `${TITLES[next]} · KeepOnCourse`;
     window.scrollTo(0, 0);
   }
 

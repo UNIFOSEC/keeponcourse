@@ -71,11 +71,11 @@ export function createOverview(ctx: Ctx): View {
       h(
         "div",
         { class: "welcome-text" },
-        h("h2", {}, "Welcome to CodeCraftHub"),
+        h("h2", {}, "Welcome to KeepOnCourse"),
         h(
           "p",
           {},
-          "Plan what you're learning, track progress, and hit your deadlines. This is a live demo: your courses are saved in this browser only. They're sent out only if you chat with Coach, the AI assistant.",
+          "Whatever you're learning, KeepOnCourse helps you finish it: plan your study time, track progress and deadlines, and ask Coach, your AI study coach, when you're stuck or falling behind. Your courses are saved in this browser only, and are sent out only when you chat with Coach.",
         ),
         h(
           "div",

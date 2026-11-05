@@ -1,8 +1,8 @@
 {
-  "name": "codecrafthub-web",
+  "name": "keeponcourse-web",
   "private": true,
   "version": "2.0.0",
-  "description": "CodeCraftHub web app: a learning planner for developers",
+  "description": "KeepOnCourse web app: an AI coach that helps you finish any course",
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,11 +1,17 @@
-# CodeCraftHub
+# KeepOnCourse
 
-**Live demo:** https://unifosec.github.io/codecrafthub/ · part of [Jose Ernest's portfolio](https://unifosec.github.io/#projects)
+**Your AI coach for finishing any course.**
 
-A personalized learning platform for developers. It has two parts:
+**Live demo:** https://unifosec.github.io/keeponcourse/ · part of [Jose Ernest's portfolio](https://unifosec.github.io/#projects)
+
+KeepOnCourse helps anyone finish the courses they start, whether online classes, university modules, certifications, languages or creative skills. You track courses on a board, see what's due and what's slipping, and chat with **Coach** (Claude) to plan your study time, understand topics, and update your course list.
+
+The project started as **CodeCraftHub**, the final project of an AI-assisted development course. Those course deliverables are kept in this repository:
 
 1. **Backend**: a REST API (Node.js + Express) with full CRUD for course listings. Data is stored in a JSON file, so you don't need a database.
 2. **Frontend**: a single-file dashboard (`dashboard.html`) that calls the API from your browser.
+
+The current product lives in [`web/`](web/README.md) (the app) and [`coach/`](coach/README.md) (the AI proxy).
 
 ## Project files
 
@@ -14,7 +20,7 @@ A personalized learning platform for developers. It has two parts:
 | `app.js` | The Express API server |
 | `courses.json` | The data file. The API reads and writes it. |
 | `dashboard.html` | The CRUD dashboard UI (HTML, CSS and JS in one file). This is the version submitted for the course. |
-| `web/` | **CodeCraftHub v2**, the redesigned web app (TypeScript + Vite). It has its own [README](web/README.md). |
+| `web/` | **KeepOnCourse**, the web app (TypeScript + Vite). It has its own [README](web/README.md). |
 | `coach/` | The **Coach** proxy, a Cloudflare Worker that connects the web app's AI assistant to Claude. It has its own [README](coach/README.md). |
 | `BOLT_PROMPT.md` | The prompt that generates the dashboard in Bolt.new / Bolt.diy |
 | `package.json` | Dependencies and npm scripts |
@@ -35,7 +41,7 @@ npm start
 You should see:
 
 ```
-CodeCraftHub API is starting...
+KeepOnCourse API is starting...
 API will be available at: http://localhost:5000
 ```
 

@@ -1,5 +1,5 @@
 /**
- * CodeCraftHub - Personalized Learning Platform API
+ * KeepOnCourse - Course API (started as CodeCraftHub)
  * A simple REST API to manage course listings, stored in a JSON file
  */
 
@@ -209,7 +209,7 @@ function checkBody(data) {
  */
 app.get("/", (req, res) => {
   res.json({
-    message: "Welcome to the CodeCraftHub API!",
+    message: "Welcome to the KeepOnCourse API!",
     version: "1.0",
     endpoints: {
       "GET /api/courses": "Get all courses (optional ?status= filter)",
@@ -547,7 +547,7 @@ app.use((err, req, res, next) => {
 
 app.listen(PORT, () => {
   console.log("=".repeat(60));
-  console.log("CodeCraftHub API is starting...");
+  console.log("KeepOnCourse API is starting...");
   console.log("=".repeat(60));
   console.log(`Data will be stored in: ${path.resolve(DATA_FILE)}`);
   console.log(`API will be available at: http://localhost:${PORT}`);

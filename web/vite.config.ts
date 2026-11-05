@@ -28,7 +28,7 @@ function contentSecurityPolicy(coachUrl: string): Plugin {
   ].join("; ");
 
   return {
-    name: "codecrafthub-csp",
+    name: "keeponcourse-csp",
     apply: "build",
     transformIndexHtml: () => [
       { tag: "meta", attrs: { "http-equiv": "Content-Security-Policy", content: csp }, injectTo: "head-prepend" },

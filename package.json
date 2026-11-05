@@ -1,7 +1,7 @@
 {
-  "name": "codecrafthub",
+  "name": "keeponcourse",
   "version": "1.0.0",
-  "description": "CodeCraftHub - Personalized learning platform: a REST API to manage course listings, stored in a JSON file",
+  "description": "KeepOnCourse - course API: a REST API to manage course listings, stored in a JSON file",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",

@@ -1,8 +1,8 @@
 {
-  "name": "codecrafthub-coach",
+  "name": "keeponcourse-coach",
   "private": true,
   "version": "1.0.0",
-  "description": "Coach proxy: keeps the Claude API key server-side for the CodeCraftHub web app",
+  "description": "Coach proxy: keeps the Claude API key server-side for the KeepOnCourse web app",
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
