@@ -22,6 +22,7 @@ The current product lives in [`web/`](web/README.md) (the app) and [`coach/`](co
 | `dashboard.html` | The CRUD dashboard UI (HTML, CSS and JS in one file). This is the version submitted for the course. |
 | `web/` | **KeepOnCourse**, the web app (TypeScript + Vite). It has its own [README](web/README.md). |
 | `coach/` | The **Coach** proxy, a Cloudflare Worker that connects the web app's AI assistant to Claude. It has its own [README](coach/README.md). |
+| `supabase/schema.sql` | The accounts database: courses table, row-level security, grants, and account deletion. See the [web README](web/README.md). |
 | `BOLT_PROMPT.md` | The prompt that generates the dashboard in Bolt.new / Bolt.diy |
 | `package.json` | Dependencies and npm scripts |
 
