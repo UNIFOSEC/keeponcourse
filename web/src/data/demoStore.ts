@@ -5,7 +5,8 @@ import { seedCourses } from "./seed";
 import { readJSON, writeJSON } from "./storage";
 import { StoreError, type CourseStore } from "./store";
 
-const STORAGE_KEY = "cch.demo.courses.v1";
+// v2: sample courses now cover any subject (v1 held the developer-only samples)
+const STORAGE_KEY = "cch.demo.courses.v2";
 
 /** Drop anything in storage that isn't a well-formed course (storage is user-editable). */
 function sanitize(value: unknown): Course[] | null {
