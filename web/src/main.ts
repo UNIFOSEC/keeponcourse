@@ -1,6 +1,7 @@
 import "@fontsource-variable/inter";
 import "./styles.css";
 import "./coach.css";
+import "./plan.css";
 import { Account } from "./account";
 import { App } from "./app";
 import { mountShell } from "./shell";

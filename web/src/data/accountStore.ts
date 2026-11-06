@@ -1,10 +1,11 @@
 import type { PostgrestError, SupabaseClient } from "@supabase/supabase-js";
 import { timestamp } from "../dates";
-import type { Course, CourseInput } from "../types";
+import { sanitizePlan } from "../plan";
+import type { Course, CourseDraft, CourseInput, CoursePatch } from "../types";
 import { hasErrors, validateCourse } from "../validation";
 import { StoreError, type CourseStore } from "./store";
 
-const COLUMNS = "id, name, description, target_date, status, created_at, updated_at";
+const COLUMNS = "id, name, description, target_date, status, created_at, updated_at, plan";
 
 interface Row {
   id: number;
@@ -14,6 +15,7 @@ interface Row {
   status: Course["status"];
   created_at: string;
   updated_at: string | null;
+  plan: unknown;
 }
 
 /** Same timestamp format as the other data sources. */
@@ -26,7 +28,16 @@ function toCourse(row: Row): Course {
     status: row.status,
     created_at: timestamp(new Date(row.created_at)),
     ...(row.updated_at ? { updated_at: timestamp(new Date(row.updated_at)) } : {}),
+    plan: sanitizePlan(row.plan),
   };
+}
+
+/** A plan in a create/update must be valid; null removes it. */
+function checkPlan(plan: unknown): Course["plan"] {
+  if (plan === null || plan === undefined) return null;
+  const clean = sanitizePlan(plan);
+  if (!clean) throw new StoreError("That study plan isn't valid.", 400);
+  return clean;
 }
 
 function fail(error: PostgrestError | null, fallback: string): never {
@@ -44,6 +55,7 @@ function fail(error: PostgrestError | null, fallback: string): never {
  */
 export class AccountStore implements CourseStore {
   readonly kind = "account";
+  readonly supportsPlans = true;
 
   constructor(private sb: SupabaseClient) {}
 
@@ -53,7 +65,7 @@ export class AccountStore implements CourseStore {
     return (data as Row[]).map(toCourse);
   }
 
-  async create(input: CourseInput): Promise<Course> {
+  async create(input: CourseDraft): Promise<Course> {
     this.check(input, false);
     const { data, error } = await this.sb
       .from("courses")
@@ -62,6 +74,7 @@ export class AccountStore implements CourseStore {
         description: input.description.trim(),
         target_date: input.target_date,
         status: input.status,
+        plan: checkPlan(input.plan),
       })
       .select(COLUMNS)
       .single();
@@ -69,13 +82,14 @@ export class AccountStore implements CourseStore {
     return toCourse(data as Row);
   }
 
-  async update(id: number, patch: Partial<CourseInput>): Promise<Course> {
+  async update(id: number, patch: CoursePatch): Promise<Course> {
     this.check(patch, true);
-    const changes: Partial<CourseInput> = {};
+    const changes: CoursePatch = {};
     if (patch.name !== undefined) changes.name = patch.name.trim();
     if (patch.description !== undefined) changes.description = patch.description.trim();
     if (patch.target_date !== undefined) changes.target_date = patch.target_date;
     if (patch.status !== undefined) changes.status = patch.status;
+    if (patch.plan !== undefined) changes.plan = checkPlan(patch.plan);
     const { data, error } = await this.sb.from("courses").update(changes).eq("id", id).select(COLUMNS).single();
     if (error) fail(error, "Couldn't save your changes.");
     return toCourse(data as Row);
@@ -94,10 +108,10 @@ export class AccountStore implements CourseStore {
   }
 
   /** Copies courses in one request (used to bring demo courses into a new account). */
-  async importMany(courses: CourseInput[]): Promise<number> {
+  async importMany(courses: CourseDraft[]): Promise<number> {
     const rows = courses
       .filter((c) => !hasErrors(validateCourse(c)))
-      .map(({ name, description, target_date, status }) => ({ name: name.trim(), description: description.trim(), target_date, status }));
+      .map(({ name, description, target_date, status, plan }) => ({ name: name.trim(), description: description.trim(), target_date, status, plan: sanitizePlan(plan) }));
     if (rows.length === 0) return 0;
     const { error } = await this.sb.from("courses").insert(rows);
     if (error) fail(error, "Couldn't copy your courses.");

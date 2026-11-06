@@ -23,6 +23,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(
   if (props.class) el.className = props.class;
   for (const [name, value] of Object.entries(props.attrs ?? {})) {
     if (/^on/i.test(name)) throw new Error(`Use props.on for "${name}", not an attribute`);
+    // ARIA states are strings ("true"/"false"), not HTML boolean attributes
+    if (name.startsWith("aria-") && typeof value === "boolean") {
+      el.setAttribute(name, String(value));
+      continue;
+    }
     if (value === false || value == null) continue;
     el.setAttribute(name, value === true ? "" : String(value));
   }
@@ -41,6 +46,12 @@ export function append(parent: Node, children: Child[]): void {
     else if (typeof child === "string" || typeof child === "number") parent.appendChild(document.createTextNode(String(child)));
     else parent.appendChild(child);
   }
+}
+
+/** replaceChildren() that accepts the same children as h(), including null/false/arrays. */
+export function setChildren(parent: Element, ...children: Child[]): void {
+  parent.replaceChildren();
+  append(parent, children);
 }
 
 export function cx(...names: (string | false | null | undefined)[]): string {

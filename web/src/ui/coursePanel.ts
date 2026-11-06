@@ -4,6 +4,7 @@ import { StoreError } from "../data/store";
 import { STATUSES, STATUS_KEY, type Course, type CourseInput, type Status } from "../types";
 import { LIMITS, hasErrors, validateCourse, type FieldErrors } from "../validation";
 import { removeWithUndo } from "./components";
+import { createPlanSection } from "./planSection";
 import { h } from "./dom";
 import { icon } from "./icons";
 import { toast } from "./toast";
@@ -11,7 +12,7 @@ import { toast } from "./toast";
 type Field = keyof CourseInput;
 
 /** Slide-over panel for adding and editing a course. One instance, reused. */
-export function createCoursePanel(app: App) {
+export function createCoursePanel(app: App, openPlanWizard: (course?: Course) => void) {
   let editing: Course | null = null;
   let busy = false;
 
@@ -57,6 +58,13 @@ export function createCoursePanel(app: App) {
     );
   }
 
+  const planSection = createPlanSection(app, {
+    planCourse: (course) => {
+      dialog.close();
+      openPlanWizard(course);
+    },
+  });
+
   const deleteBtn = h(
     "button",
     { class: "btn btn-ghost-danger", attrs: { type: "button" }, on: { click: onDelete } },
@@ -90,6 +98,7 @@ export function createCoursePanel(app: App) {
         statusGroup,
         (errorEls.status = h("p", { class: "field-error" })),
       ),
+      planSection.el,
     ),
     h("footer", { class: "sheet-foot" }, deleteBtn, h("span", { class: "spacer" }), cancelBtn, saveBtn),
   );
@@ -140,6 +149,7 @@ export function createCoursePanel(app: App) {
     subtitle.textContent = editing ? `#${editing.id} · added ${editing.created_at.slice(0, 10)}` : "Add something you want to learn.";
     saveLabel.textContent = editing ? "Save changes" : "Add course";
     deleteBtn.hidden = !editing;
+    planSection.show(editing);
 
     name.value = editing?.name ?? "";
     description.value = editing?.description ?? "";

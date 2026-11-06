@@ -1,12 +1,14 @@
-import type { Course, CourseInput } from "../types";
+import type { Course, CourseDraft, CoursePatch } from "../types";
 import { readJSON, writeJSON } from "./storage";
 
 /** Everything the UI needs from a data source. Demo and API modes both implement it. */
 export interface CourseStore {
   readonly kind: "demo" | "api" | "account";
   list(): Promise<Course[]>;
-  create(input: CourseInput): Promise<Course>;
-  update(id: number, patch: Partial<CourseInput>): Promise<Course>;
+  create(input: CourseDraft): Promise<Course>;
+  update(id: number, patch: CoursePatch): Promise<Course>;
+  /** Whether this data source can store study plans. */
+  readonly supportsPlans: boolean;
   remove(id: number): Promise<Course>;
   /** Put a removed course back (used by Undo). */
   restore(course: Course): Promise<Course>;

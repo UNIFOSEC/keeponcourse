@@ -1,6 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { errorMessage, type App } from "../app";
 import { todayISO } from "../dates";
+import { finishDate, nextSession, progress } from "../plan";
 import { runTool, undoAction, type CoachAction } from "./tools";
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -22,6 +23,14 @@ export type Item =
   | { id: string; kind: "notice"; tone: "error" | "info"; text: string };
 
 export type Phase = "idle" | "thinking" | "writing" | "acting";
+
+/** What Coach extracts from a syllabus (see coach/src/planner.ts). */
+export interface SyllabusOutline {
+  course_name: string;
+  description: string;
+  suggested_weeks: number;
+  modules: { title: string; summary: string; hours: number }[];
+}
 
 type CoachEvent =
   | { type: "status"; state: "thinking" | "tool"; name?: string }
@@ -56,12 +65,24 @@ function displayText(content: ContentBlock[]): string {
  * Tagged so the system prompt can tell Claude to treat it as data, not instructions.
  */
 function snapshot(app: App): string {
-  const courses = app.courses.map(({ id, name, description, target_date, status }) => ({
+  const courses = app.courses.map(({ id, name, description, target_date, status, plan }) => ({
     id,
     name,
     description: description.slice(0, 280),
     target_date,
     status,
+    // A short summary is enough for Coach; the full schedule stays in the app
+    ...(plan
+      ? {
+          study_plan: {
+            modules_done: progress(plan).done,
+            modules_total: plan.modules.length,
+            next_module: plan.modules.find((m) => !m.done)?.title ?? null,
+            next_session: nextSession(plan)?.date ?? null,
+            planned_finish: finishDate(plan),
+          },
+        }
+      : {}),
   }));
   let json = JSON.stringify(courses);
   while (json.length > MAX_SNAPSHOT_CHARS && courses.length) {
@@ -107,6 +128,39 @@ export class CoachSession {
   subscribe(listener: () => void): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
+  }
+
+  /**
+   * Turns syllabus text or a PDF into a course outline (modules + hour
+   * estimates). Uses one message from today's allowance.
+   */
+  async outline(input: { text?: string; pdfBase64?: string; nameHint?: string }): Promise<SyllabusOutline> {
+    if (!this.configured) throw new CoachError("Coach isn't connected in this build.", "config");
+    let response: Response;
+    try {
+      response = await this.fetchWithAuth("/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: input.text, pdf_base64: input.pdfBase64, name_hint: input.nameHint }),
+      });
+    } catch {
+      throw new CoachError("Can't reach Coach right now. Check your connection and try again.", "network");
+    }
+    let body: { plan?: SyllabusOutline; error?: string; code?: string } | null = null;
+    try {
+      body = await response.json();
+    } catch {
+      // not JSON
+    }
+    this.readUsageHeaders(response);
+    if (body?.code === "quota" || body?.code === "quota_anon") {
+      this.usage = { limit: this.usage?.limit ?? 0, remaining: 0, signedIn: this.app.account.signedIn };
+    }
+    this.emit();
+    if (!response.ok || !body?.plan) {
+      throw new CoachError(body?.error ?? `Coach request failed (HTTP ${response.status}).`, body?.code);
+    }
+    return body.plan;
   }
 
   /** Asks the proxy how many messages are left today (counts nothing). */

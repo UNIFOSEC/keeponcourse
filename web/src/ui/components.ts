@@ -13,6 +13,8 @@ export interface Ctx {
   openCourse(course?: Course): void;
   openSettings(): void;
   openAccount(): void;
+  /** Import a syllabus / build a study plan, for a new course or an existing one. */
+  openPlanWizard(course?: Course): void;
 }
 
 export interface View {

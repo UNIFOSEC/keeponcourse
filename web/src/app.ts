@@ -3,7 +3,7 @@ import { AccountStore } from "./data/accountStore";
 import { ApiStore } from "./data/apiStore";
 import { DemoStore } from "./data/demoStore";
 import { loadSettings, saveSettings, type CourseStore, type Settings } from "./data/store";
-import type { Course, CourseInput, Status } from "./types";
+import type { Course, CourseDraft, CoursePatch, Status } from "./types";
 
 export type LoadState = "loading" | "ready" | "error";
 
@@ -75,14 +75,14 @@ export class App {
     this.emit();
   }
 
-  async create(input: CourseInput): Promise<Course> {
+  async create(input: CourseDraft): Promise<Course> {
     const course = await this.store.create(input);
     this.courses = [...this.courses, course];
     this.emit();
     return course;
   }
 
-  async update(id: number, patch: Partial<CourseInput>): Promise<Course> {
+  async update(id: number, patch: CoursePatch): Promise<Course> {
     const course = await this.store.update(id, patch);
     this.replace(course);
     return course;

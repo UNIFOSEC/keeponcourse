@@ -12,6 +12,7 @@
  *   {"type":"error","code":"...","message":"..."}
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { planFromSyllabus, validatePlanRequest } from "./planner";
 import { SYSTEM_PROMPT, TOOLS } from "./prompt";
 import { peekUsage, useMessage, UsageError, type Usage, type UsageEnv } from "./usage";
 import { RequestError, validateMessages } from "./validate";
@@ -61,6 +62,8 @@ export default {
       }
     }
 
+    if (url.pathname === "/plan") return handlePlan(request, env, origin, cors);
+
     if (url.pathname !== "/chat") return json({ error: "Not found" }, 404, cors);
     if (request.method !== "POST") return json({ error: "Use POST" }, 405, cors);
 
@@ -107,6 +110,54 @@ export default {
     return streamReply(messages, env, { ...cors, ...usageHeaders(usage) }, ctx);
   },
 } satisfies ExportedHandler<Env>;
+
+const MAX_PLAN_BYTES = 6 * 1024 * 1024; // a 4 MB PDF is ~5.4 MB as base64
+
+/** POST /plan: syllabus text or PDF → course outline (one message from the daily allowance). */
+async function handlePlan(request: Request, env: Env, origin: string | null, cors: Record<string, string>): Promise<Response> {
+  if (request.method !== "POST") return json({ error: "Use POST" }, 405, cors);
+  if (!origin) return json({ error: "This origin isn't allowed to use Coach.", code: "forbidden" }, 403);
+  if (!env.ANTHROPIC_API_KEY) return json({ error: "Coach isn't configured yet.", code: "config" }, 503, cors);
+
+  if (env.CHAT_LIMITER) {
+    const { success } = await env.CHAT_LIMITER.limit({ key: request.headers.get("CF-Connecting-IP") ?? "unknown" });
+    if (!success) return json({ error: "You're sending requests quickly. Wait a minute, then try again.", code: "rate_limited" }, 429, cors);
+  }
+  if (!(request.headers.get("Content-Type") ?? "").includes("application/json")) {
+    return json({ error: "Send JSON.", code: "bad_request" }, 415, cors);
+  }
+  if (Number(request.headers.get("Content-Length") ?? 0) > MAX_PLAN_BYTES) {
+    return json({ error: "That file is too large. Use a PDF under 4 MB.", code: "too_large" }, 413, cors);
+  }
+
+  let input;
+  try {
+    const text = await request.text();
+    if (text.length > MAX_PLAN_BYTES) throw new RequestError("That file is too large. Use a PDF under 4 MB.");
+    input = validatePlanRequest(JSON.parse(text));
+  } catch (error) {
+    const message = error instanceof RequestError ? error.message : "The request wasn't valid JSON.";
+    return json({ error: message, code: "bad_request" }, 400, cors);
+  }
+
+  let usage: Usage;
+  try {
+    usage = await useMessage(request, env);
+  } catch (error) {
+    return usageErrorResponse(error, cors);
+  }
+
+  try {
+    const client = new Anthropic({ apiKey: env.ANTHROPIC_API_KEY, baseURL: env.ANTHROPIC_BASE_URL || undefined, maxRetries: 1 });
+    const plan = await planFromSyllabus(client, model(env), input);
+    return json({ plan }, 200, { ...cors, ...usageHeaders(usage) });
+  } catch (error) {
+    if (error instanceof RequestError) return json({ error: error.message, code: "unplannable" }, 422, { ...cors, ...usageHeaders(usage) });
+    console.error("Plan request failed:", error);
+    const { code, message } = describeError(error);
+    return json({ error: message, code }, 502, { ...cors, ...usageHeaders(usage) });
+  }
+}
 
 function usageBody(usage: Usage) {
   return { signedIn: usage.signedIn, limit: usage.limit, used: usage.used, remaining: Math.max(0, usage.limit - usage.used) };

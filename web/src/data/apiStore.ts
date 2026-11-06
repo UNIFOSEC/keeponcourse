@@ -1,4 +1,4 @@
-import type { Course, CourseInput } from "../types";
+import type { Course, CourseDraft, CourseInput, CoursePatch } from "../types";
 import { StoreError, type CourseStore } from "./store";
 
 interface ApiError {
@@ -10,6 +10,8 @@ type ApiResponse<T> = ({ success: true } & T) | ApiError;
 /** Talks to the project's Express API (app.js in the repository root). */
 export class ApiStore implements CourseStore {
   readonly kind = "api";
+  /** The Express API stores the four course fields only */
+  readonly supportsPlans = false;
 
   constructor(readonly baseUrl: string) {}
 
@@ -17,12 +19,18 @@ export class ApiStore implements CourseStore {
     return (await this.request<{ courses: Course[] }>("")).courses;
   }
 
-  async create(input: CourseInput): Promise<Course> {
-    return (await this.request<{ course: Course }>("", { method: "POST", body: JSON.stringify(input) })).course;
+  async create(input: CourseDraft): Promise<Course> {
+    const { name, description, target_date, status } = input;
+    const fields: CourseInput = { name, description, target_date, status };
+    return (await this.request<{ course: Course }>("", { method: "POST", body: JSON.stringify(fields) })).course;
   }
 
-  async update(id: number, patch: Partial<CourseInput>): Promise<Course> {
-    return (await this.request<{ course: Course }>(`/${id}`, { method: "PUT", body: JSON.stringify(patch) }))
+  async update(id: number, patch: CoursePatch): Promise<Course> {
+    const { plan, ...fields } = patch;
+    if (plan !== undefined && Object.keys(fields).length === 0) {
+      throw new StoreError("Study plans are saved with demo data or an account, not the local API.", 400);
+    }
+    return (await this.request<{ course: Course }>(`/${id}`, { method: "PUT", body: JSON.stringify(fields) }))
       .course;
   }
 

@@ -18,6 +18,7 @@ import {
 } from "../ui/components";
 import { cx, h } from "../ui/dom";
 import { icon } from "../ui/icons";
+import { progress } from "../plan";
 import { toast } from "../ui/toast";
 
 type Mode = "board" | "list";
@@ -81,7 +82,10 @@ export function createCourses(ctx: Ctx): View {
   const el = h(
     "div",
     { class: "page" },
-    pageHeader("Courses", count, newCourseButton(ctx)),
+    pageHeader("Courses", count, [
+      button("Import syllabus", () => ctx.openPlanWizard(), { iconName: "upload" }),
+      newCourseButton(ctx),
+    ]),
     h(
       "div",
       { class: "toolbar" },
@@ -231,6 +235,7 @@ export function createCourses(ctx: Ctx): View {
       },
       h("h3", { class: "card-title" }, course.name),
       h("p", { class: "card-desc" }, course.description),
+      course.plan && planBar(course),
       h("footer", { class: "card-foot" }, dueChip(course), h("span", { class: "card-id" }, `#${course.id}`)),
     );
   }
@@ -291,4 +296,18 @@ export function createCourses(ctx: Ctx): View {
 
   renderResults();
   return { el, update: renderResults, focusSearch: () => search.focus() };
+}
+
+/** Small progress bar for courses with a study plan. */
+function planBar(course: Course): HTMLElement | null {
+  if (!course.plan) return null;
+  const { done, total, pct } = progress(course.plan);
+  const fill = h("span", {});
+  fill.style.width = `${pct}%`;
+  return h(
+    "div",
+    { class: "card-plan", attrs: { "aria-label": `Study plan: ${done} of ${total} modules done` } },
+    h("div", { class: "progress-bar progress-bar-sm" }, fill),
+    h("span", { class: "card-plan-text" }, `${done}/${total}`),
+  );
 }

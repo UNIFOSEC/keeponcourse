@@ -129,6 +129,33 @@ function script(messages) {
   return { blocks: [thinking, { type: "text", text: lines.join("\n") }], stop_reason: "end_turn" };
 }
 
+/**
+ * Scripted answer for the /plan endpoint (structured output, not streamed).
+ * Lines like "Week 1: …", "Module 2 - …", "Unit 3 …", "Chapter 4 …" or "5. …"
+ * become modules; a PDF gets a fixed three-module outline.
+ */
+function planReply(body) {
+  const blocks = body.messages[0].content;
+  const isPdf = blocks.some((b) => b.type === "document");
+  const material = blocks.find((b) => b.type === "text")?.text ?? "";
+  const inner = material.includes("<course_material>") ? material.split("<course_material>")[1].split("</course_material>")[0] : "";
+  const lines = inner.split("\n").map((l) => l.trim()).filter(Boolean);
+  const heading = /^(?:(?:week|module|unit|chapter|lesson|part)\s*\d+[:.)\-–\s]+|\d+[.)]\s+)(.+)$/i;
+  const titles = isPdf ? ["Foundations", "Core techniques", "Final project"] : lines.map((l) => heading.exec(l)?.[1]).filter(Boolean);
+  const hint = /calls this course "([^"]+)"/.exec(material)?.[1];
+  const plan = {
+    course_name: hint || (isPdf ? "Course from PDF" : lines[0]?.slice(0, 100)) || "Untitled course",
+    description: "A structured path through the course material (mock outline, not real AI).",
+    suggested_weeks: Math.max(2, Math.ceil(titles.length * 0.75)),
+    modules: titles.slice(0, 20).map((title, i) => ({ title: title.slice(0, 80), summary: `Work through ${title.toLowerCase()} with practice.`, hours: 2 + (i % 3) })),
+  };
+  return {
+    id: `msg_mock_plan_${++counter}`, type: "message", role: "assistant", model: body.model,
+    content: [{ type: "text", text: JSON.stringify(plan) }],
+    stop_reason: "end_turn", stop_sequence: null, usage: { input_tokens: 200, output_tokens: 120 },
+  };
+}
+
 async function streamReply(res, body) {
   const { blocks, stop_reason } = script(body.messages);
   const sse = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify({ type: event, ...data })}\n\n`);
@@ -185,9 +212,14 @@ http
       const body = JSON.parse(raw);
       const credential = req.headers["x-api-key"] || req.headers["authorization"];
       received.push({ headers: { "anthropic-beta": req.headers["anthropic-beta"], credential: credential ? "(set)" : "(missing)" }, body });
+      if (!body.stream && body.output_config?.format?.type === "json_schema") {
+        res.writeHead(200, { "Content-Type": "application/json" });
+        res.end(JSON.stringify(planReply(body)));
+        return;
+      }
       if (!body.stream) {
         res.writeHead(400, { "Content-Type": "application/json" });
-        res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "mock supports streaming only" } }));
+        res.end(JSON.stringify({ type: "error", error: { type: "invalid_request_error", message: "mock supports streaming, or structured output for /plan" } }));
         return;
       }
       streamReply(res, body).catch((error) => {

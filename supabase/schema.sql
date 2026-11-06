@@ -25,6 +25,13 @@ create table if not exists public.courses (
 
 create index if not exists courses_user_target_idx on public.courses (user_id, target_date);
 
+-- Study plan (modules + scheduled sessions), written by the app. Must be a JSON
+-- object of at most 64 KB, so the column can't be used to store arbitrary data.
+alter table public.courses add column if not exists plan jsonb;
+alter table public.courses drop constraint if exists courses_plan_shape;
+alter table public.courses add constraint courses_plan_shape
+  check (plan is null or (jsonb_typeof(plan) = 'object' and octet_length(plan::text) <= 65536));
+
 alter table public.courses enable row level security;
 
 drop policy if exists "Users read their own courses" on public.courses;
@@ -47,8 +54,8 @@ create policy "Users delete their own courses" on public.courses
 -- Least privilege: Supabase grants everything by default; narrow it down
 revoke all on public.courses from anon, authenticated;
 grant select, delete on public.courses to authenticated;
-grant insert (name, description, target_date, status) on public.courses to authenticated;
-grant update (name, description, target_date, status) on public.courses to authenticated;
+grant insert (name, description, target_date, status, plan) on public.courses to authenticated;
+grant update (name, description, target_date, status, plan) on public.courses to authenticated;
 
 -- Keep updated_at current
 create or replace function public.touch_updated_at()
