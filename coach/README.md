@@ -92,6 +92,8 @@ Errors that happen before streaming starts come back as plain JSON with a status
 
 Send `Authorization: Bearer <Supabase access token>` to use a signed-in user's allowance. Every reply includes `X-Coach-Limit` and `X-Coach-Remaining`.
 
+`POST /plan` with `{ "text": "…syllabus…" }` or `{ "pdf_base64": "…" }` (PDF up to 4 MB), plus an optional `name_hint`, returns `{ "plan": { "course_name", "description", "suggested_weeks", "modules": [{ "title", "summary", "hours" }] } }`. It uses Claude's structured output (a JSON schema), treats the material as untrusted data, re-checks and clamps every field, and costs one message from the daily allowance.
+
 `GET /usage` returns today's allowance without counting anything: `{"signedIn":false,"limit":15,"used":3,"remaining":12}`.
 
 `GET /health` returns `{"ok":true,"model":"..."}`.

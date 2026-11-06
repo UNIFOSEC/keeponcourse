@@ -18,6 +18,7 @@ It's a TypeScript app built with Vite, with no UI framework. It builds to a stat
   - You can stop a reply midway, the chat survives page reloads, and there are suggested prompts to start with.
   - A daily allowance keeps costs predictable: 60 messages for signed-in users, 15 for anonymous visitors. The composer shows how many are left, and invites anonymous visitors to sign in for more.
   - It runs through the proxy in [`../coach`](../coach/README.md).
+- **Study plans:** import a syllabus (paste it or upload a PDF) and Coach breaks it into modules with hour estimates, or add modules yourself. Pick your study days, session length, time and target date; a live summary shows when you'll finish. Plans export to any calendar as an `.ics` file (one event per session, with reminders), and each course gets a module checklist and progress bar. Scheduling runs in the browser and is deterministic; Claude only proposes the modules.
 - **Accounts with sync:** sign in with a one-time email link (no password) and your courses are stored in your account and synced across devices. You can export your data or delete your account any time, and a new account is offered a copy of your demo courses.
 - **Signed out, two data sources switchable at runtime:**
   - **Demo data** (default): sample courses in the visitor's own browser storage. Nothing is sent anywhere, so a public demo needs no server.
