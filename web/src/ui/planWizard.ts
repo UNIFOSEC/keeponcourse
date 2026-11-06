@@ -1,9 +1,11 @@
 import { errorMessage, type App } from "../app";
 import type { CoachSession, SyllabusOutline } from "../coach/session";
-import { addDays, formatDate, todayISO } from "../dates";
+import { addDays, formatDate, formatTime, todayISO } from "../dates";
 import { downloadIcs } from "../ics";
 import {
+  countConflicts,
   defaultStartDate,
+  suggestFreeTime,
   finishDate,
   PLAN_LIMITS,
   schedule,
@@ -19,6 +21,7 @@ import { LIMITS, isValidDate } from "../validation";
 import { cx, h, setChildren } from "./dom";
 import { icon } from "./icons";
 import { toast } from "./toast";
+import { focusCalendarOn } from "../views/calendar";
 
 const MAX_PDF_BYTES = 4 * 1024 * 1024;
 const MAX_TEXT = 40_000;
@@ -387,7 +390,11 @@ export function createPlanWizard(app: App, coach: CoachSession) {
       }
       const slack = slackDays({ sessions }, opts.targetDate) ?? 0;
       const hours = totalHours(usable);
-      summary.className = cx("plan-summary", slack >= 0 ? "is-ok" : "is-late");
+      // Other planned courses (not the one being rebuilt), to avoid double-booking
+      const others = app.courses.filter((c) => c.plan && c.id !== course?.id).map((c) => ({ name: c.name, plan: c.plan! }));
+      const clash = countConflicts(sessions, opts.startTime, others);
+      const freeTime = clash.count ? suggestFreeTime(sessions, opts.startTime, others) : null;
+      summary.className = cx("plan-summary", slack >= 0 && !clash.count ? "is-ok" : "is-late");
       setChildren(summary, 
         icon(slack >= 0 ? "checkCircle" : "alert", 18),
         h(
@@ -419,6 +426,32 @@ export function createPlanWizard(app: App, coach: CoachSession) {
               },
             },
             `Use ${formatDate(end)}`,
+          ),
+        clash.count > 0 &&
+          h(
+            "div",
+            { class: "plan-conflict" },
+            h(
+              "span",
+              {},
+              `${clash.count} session${clash.count === 1 ? " overlaps" : "s overlap"} with ${clash.names.join(" and ")} at ${formatTime(opts.startTime)}.`,
+            ),
+            freeTime &&
+              h(
+                "button",
+                {
+                  class: "btn btn-secondary btn-sm",
+                  attrs: { type: "button" },
+                  on: {
+                    click: () => {
+                      opts.startTime = freeTime;
+                      timeInput.value = freeTime;
+                      update();
+                    },
+                  },
+                },
+                `Move to ${formatTime(freeTime)}`,
+              ),
           ),
       );
     }
@@ -490,6 +523,9 @@ export function createPlanWizard(app: App, coach: CoachSession) {
             });
         busy = false;
         dialog.close();
+        // Show the result: open the Calendar on the first session
+        if (plan.sessions[0]) focusCalendarOn(plan.sessions[0].date);
+        location.hash = "#/calendar";
         toast(`Study plan saved: ${plan.sessions.length} sessions`, {
           tone: "success",
           action: { label: "Add to calendar", run: () => saved.plan && downloadIcs(saved, saved.plan) },

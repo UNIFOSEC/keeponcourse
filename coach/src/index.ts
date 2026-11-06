@@ -12,6 +12,7 @@
  *   {"type":"error","code":"...","message":"..."}
  */
 import Anthropic from "@anthropic-ai/sdk";
+import { matchFeedPath, serveFeed } from "./calendar";
 import { planFromSyllabus, validatePlanRequest } from "./planner";
 import { SYSTEM_PROMPT, TOOLS } from "./prompt";
 import { peekUsage, useMessage, UsageError, type Usage, type UsageEnv } from "./usage";
@@ -49,6 +50,17 @@ export default {
 
     if (url.pathname === "/health" && request.method === "GET") {
       return json({ ok: true, model: model(env) }, 200, cors);
+    }
+
+    // Calendar subscription feed: fetched by calendar apps, so no Origin check;
+    // the 64-character secret token in the path is the credential
+    const feedToken = matchFeedPath(url.pathname);
+    if (feedToken && (request.method === "GET" || request.method === "HEAD")) {
+      if (env.CHAT_LIMITER) {
+        const { success } = await env.CHAT_LIMITER.limit({ key: `feed:${feedToken}` });
+        if (!success) return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
+      }
+      return serveFeed(feedToken, env);
     }
 
     // Today's allowance, for the app's "N messages left today"

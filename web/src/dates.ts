@@ -68,3 +68,9 @@ export function greeting(): string {
   if (hour < 18) return "Good afternoon";
   return "Good evening";
 }
+
+/** "19:00" → "7:00 PM" (or the locale's own format). */
+export function formatTime(hhmm: string): string {
+  const [hours, minutes] = hhmm.split(":").map(Number);
+  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
+}

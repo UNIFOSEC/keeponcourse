@@ -1,16 +1,11 @@
 import { errorMessage, type App } from "../app";
-import { formatDate } from "../dates";
+import { formatDate, formatTime } from "../dates";
 import { downloadIcs } from "../ics";
 import { nextSession, progress, type StudyPlan } from "../plan";
 import type { Course } from "../types";
 import { cx, h, setChildren } from "./dom";
 import { icon } from "./icons";
 import { toast } from "./toast";
-
-function formatTime(hhmm: string): string {
-  const [hours, minutes] = hhmm.split(":").map(Number);
-  return new Intl.DateTimeFormat(undefined, { hour: "numeric", minute: "2-digit" }).format(new Date(2000, 0, 1, hours, minutes));
-}
 
 /**
  * The "Study plan" part of the course panel: progress, a module checklist

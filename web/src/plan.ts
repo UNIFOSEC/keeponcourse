@@ -129,3 +129,47 @@ export function sanitizePlan(value: unknown): StudyPlan | null {
 export function defaultStartDate(): string {
   return addDays(todayISO(), 1);
 }
+
+const toMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(":").map(Number);
+  return h * 60 + m;
+};
+const fromMinutes = (total: number) => `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+
+interface OtherPlan {
+  name: string;
+  plan: StudyPlan;
+}
+
+/** How many of these sessions overlap sessions from other plans at the same time. */
+export function countConflicts(sessions: PlanSession[], startTime: string, others: OtherPlan[]): { count: number; names: string[] } {
+  const start = toMinutes(startTime);
+  const names = new Set<string>();
+  let count = 0;
+  for (const session of sessions) {
+    const end = start + session.minutes;
+    const clash = others.find(({ plan }) => {
+      const otherStart = toMinutes(plan.start_time);
+      return plan.sessions.some((s) => s.date === session.date && !plan.modules[s.module]?.done && otherStart < end && start < otherStart + s.minutes);
+    });
+    if (clash) {
+      count++;
+      names.add(clash.name);
+    }
+  }
+  return { count, names: [...names] };
+}
+
+/** The earliest start time (30-minute steps, from 6 AM to 10 PM) with no clashes. */
+export function suggestFreeTime(sessions: PlanSession[], preferred: string, others: OtherPlan[]): string | null {
+  const preferredMinutes = toMinutes(preferred);
+  const candidates: number[] = [];
+  for (let t = 6 * 60; t <= 22 * 60; t += 30) candidates.push(t);
+  // Prefer times closest to what the learner picked
+  candidates.sort((a, b) => Math.abs(a - preferredMinutes) - Math.abs(b - preferredMinutes) || a - b);
+  for (const t of candidates) {
+    const time = fromMinutes(t);
+    if (countConflicts(sessions, time, others).count === 0) return time;
+  }
+  return null;
+}

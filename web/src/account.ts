@@ -118,6 +118,18 @@ export class Account {
     }
   }
 
+  /**
+   * The secret token for the user's calendar subscription feed, created on
+   * first use. reset = true issues a new one and revokes the old link.
+   */
+  async calendarFeedToken(reset = false): Promise<string> {
+    const sb = await client();
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const { data, error } = await sb.rpc("my_calendar_feed", { tz: timeZone, reset });
+    if (error || typeof data !== "string") throw new Error("Couldn't set up your calendar link. Please try again.");
+    return data;
+  }
+
   /** The signed-in user's access token (for Coach), or null when signed out. */
   async accessToken(forceRefresh = false): Promise<string | null> {
     if (!this.signedIn) return null;

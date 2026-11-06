@@ -147,3 +147,61 @@ revoke all on function public.use_coach_message() from public, anon;
 revoke all on function public.coach_messages_used() from public, anon;
 grant execute on function public.use_coach_message() to authenticated;
 grant execute on function public.coach_messages_used() to authenticated;
+
+-- --------------------------------------------------------- calendar feed
+
+-- A secret, per-user calendar subscription link. Calendar apps (Google,
+-- Outlook, Apple) fetch it without signing in, so the link itself is the
+-- credential: 64 random hex characters (two v4 UUIDs, ~244 random bits).
+-- Users can reset it at any time, which immediately revokes the old link.
+create table if not exists public.calendar_feeds (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  token      text not null unique check (token ~ '^[0-9a-f]{64}$'),
+  timezone   text not null default 'UTC' check (char_length(timezone) <= 64),
+  created_at timestamptz not null default now()
+);
+
+alter table public.calendar_feeds enable row level security;
+revoke all on public.calendar_feeds from anon, authenticated;
+
+-- Returns the caller's feed token, creating it on first use. reset => true
+-- issues a new token. tz is the user's IANA time zone (e.g. Europe/Paris).
+create or replace function public.my_calendar_feed(tz text default null, reset boolean default false)
+returns text language plpgsql security definer set search_path = '' as $$
+declare
+  fresh  text := replace(pg_catalog.gen_random_uuid()::text, '-', '') || replace(pg_catalog.gen_random_uuid()::text, '-', '');
+  result text;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  if tz is not null and (char_length(tz) > 64 or tz !~ '^[A-Za-z0-9_+/-]+$') then
+    tz := null;
+  end if;
+  insert into public.calendar_feeds (user_id, token, timezone)
+  values (auth.uid(), fresh, coalesce(tz, 'UTC'))
+  on conflict (user_id) do update set
+    token    = case when reset then excluded.token else public.calendar_feeds.token end,
+    timezone = coalesce(tz, public.calendar_feeds.timezone)
+  returning token into result;
+  return result;
+end $$;
+
+-- The feed itself: study plans for the user who owns the token. Callable
+-- without signing in (calendar apps can't), but only with the exact token.
+create or replace function public.calendar_feed(feed_token text)
+returns table (course_id bigint, course_name text, plan jsonb, timezone text)
+language sql stable security definer set search_path = '' as $$
+  select c.id, c.name, c.plan, f.timezone
+  from public.calendar_feeds f
+  join public.courses c on c.user_id = f.user_id
+  where feed_token ~ '^[0-9a-f]{64}$'
+    and f.token = feed_token
+    and c.plan is not null
+  order by c.id;
+$$;
+
+revoke all on function public.my_calendar_feed(text, boolean) from public, anon;
+grant execute on function public.my_calendar_feed(text, boolean) to authenticated;
+revoke all on function public.calendar_feed(text) from public;
+grant execute on function public.calendar_feed(text) to anon, authenticated;

@@ -12,24 +12,27 @@ import { createSettingsDialog } from "./ui/settingsDialog";
 import { themeToggle } from "./ui/theme";
 import { initToasts, toast } from "./ui/toast";
 import { createAbout } from "./views/about";
+import { createCalendar } from "./views/calendar";
 import { createCoach } from "./views/coach";
 import { createCourses } from "./views/courses";
 import { createOverview } from "./views/overview";
 
-type Route = "overview" | "courses" | "coach" | "about";
+type Route = "overview" | "courses" | "calendar" | "coach" | "about";
 
 const ROUTES: Record<string, Route> = {
   "": "overview",
   "#/": "overview",
   "#/courses": "courses",
+  "#/calendar": "calendar",
   "#/coach": "coach",
   "#/about": "about",
 };
-const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", coach: "Coach", about: "About" };
-const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", coach: "#/coach", about: "#/about" };
+const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About" };
+const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about" };
 const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   overview: createOverview,
   courses: createCourses,
+  calendar: createCalendar,
   coach: createCoach,
   about: createAbout,
 };
@@ -71,6 +74,7 @@ export function mountShell(root: HTMLElement, app: App): void {
       { class: "nav", attrs: { "aria-label": "Main" } },
       navLink("overview", "dashboard"),
       navLink("courses", "book"),
+      navLink("calendar", "calendar"),
       navLink("coach", "sparkles"),
       navLink("about", "info"),
     ),
