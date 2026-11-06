@@ -94,6 +94,8 @@ Send `Authorization: Bearer <Supabase access token>` to use a signed-in user's a
 
 `POST /plan` with `{ "text": "…syllabus…" }` or `{ "pdf_base64": "…" }` (PDF up to 4 MB), plus an optional `name_hint`, returns `{ "plan": { "course_name", "description", "suggested_weeks", "modules": [{ "title", "summary", "hours" }] } }`. It uses Claude's structured output (a JSON schema), treats the material as untrusted data, re-checks and clamps every field, and costs one message from the daily allowance.
 
+`GET /calendar/<token>.ics` is the private calendar subscription feed (no `Origin` check, since calendar apps fetch it). The 64-character token is the credential; the database function `calendar_feed()` returns study plans only for the token's owner, and an unknown token gets an empty calendar, so tokens can't be probed. Calendar apps are asked to refresh every 4 hours.
+
 `GET /usage` returns today's allowance without counting anything: `{"signedIn":false,"limit":15,"used":3,"remaining":12}`.
 
 `GET /health` returns `{"ok":true,"model":"..."}`.
