@@ -16,6 +16,7 @@ It's a TypeScript app built with Vite, with no UI framework. It builds to a stat
   - It sees your course list, so it can answer "what should I focus on this week?" or "which courses are overdue?" with specifics.
   - It can add, update and remove courses from chat. Each change appears as a card with **Undo** and **Open**.
   - You can stop a reply midway, the chat survives page reloads, and there are suggested prompts to start with.
+  - A daily allowance keeps costs predictable: 60 messages for signed-in users, 15 for anonymous visitors. The composer shows how many are left, and invites anonymous visitors to sign in for more.
   - It runs through the proxy in [`../coach`](../coach/README.md).
 - **Accounts with sync:** sign in with a one-time email link (no password) and your courses are stored in your account and synced across devices. You can export your data or delete your account any time, and a new account is offered a copy of your demo courses.
 - **Signed out, two data sources switchable at runtime:**

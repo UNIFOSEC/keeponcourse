@@ -28,7 +28,9 @@ The conversation history is **append-only**. Each assistant turn is stored and s
 | --- | --- |
 | Leaked API key | The key is a Worker secret (`wrangler secret put`). It never reaches the browser or the repository. |
 | Other sites using the endpoint | `ALLOWED_ORIGINS` allowlist. Requests without an allowed `Origin` get a 403. |
-| Abuse and cost | 10 requests per minute per IP (Workers Rate Limiting), a 256 KB body cap, per-message size limits, a 60-message conversation cap, `max_tokens: 8000`, and effort `low`. |
+| Abuse and cost | **Daily allowances:** 60 requests per signed-in user (`USER_DAILY_LIMIT`) and 15 per anonymous visitor (`ANON_DAILY_LIMIT`), resetting at midnight UTC. On top of that: 10 requests per minute per IP (Workers Rate Limiting), a 256 KB body cap, per-message size limits, a 60-message conversation cap, `max_tokens: 8000`, and effort `low`. Invalid requests are rejected before they count. |
+| Faked identities | Signed-in requests carry the user's Supabase access token. The Worker calls the `use_coach_message()` database function *with that token*, so Supabase verifies it and counts only for that user. A forged or expired token gets a 401. No service key is stored anywhere. |
+| Visitor privacy | Anonymous counts live in Workers KV under a SHA-256 hash of IP + day, never the IP itself, and expire after two days. |
 | Prompt or tool injection by callers | The system prompt and tools are fixed server-side. Only text, tool-result and Coach-tool blocks are accepted. Images, documents and unknown tools are rejected. |
 | Prompt injection through course data | Courses arrive tagged as `<course_data>`, and the system prompt tells Claude never to follow instructions inside them. |
 | Unsafe model output | The browser validates every tool input, and every change can be undone. Replies are rendered without `innerHTML`, and only `http(s)` links are allowed. |
@@ -86,6 +88,10 @@ npx wrangler deploy
 {"type":"error","code":"busy","message":"Coach is busy right now. Try again in a minute."}
 ```
 
-Errors that happen before streaming starts come back as plain JSON with a status code: 400 (invalid request), 403 (origin not allowed), 413 (too large), 429 (rate limited) or 503 (not configured).
+Errors that happen before streaming starts come back as plain JSON with a status code: 400 (invalid request), 401 (sign-in expired), 403 (origin not allowed), 413 (too large), 429 (rate limited, or daily allowance used up: `quota` / `quota_anon`) or 503 (not configured).
+
+Send `Authorization: Bearer <Supabase access token>` to use a signed-in user's allowance. Every reply includes `X-Coach-Limit` and `X-Coach-Remaining`.
+
+`GET /usage` returns today's allowance without counting anything: `{"signedIn":false,"limit":15,"used":3,"remaining":12}`.
 
 `GET /health` returns `{"ok":true,"model":"..."}`.
