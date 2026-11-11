@@ -3,9 +3,14 @@
 # separately, as soon as an advisory is published.
 version: 2
 updates:
+  # The course API (app.js) is a graded course deliverable, so it stays on its
+  # current major versions (e.g. Express 4); only minor and patch updates
   - package-ecosystem: npm
     directory: /
     schedule: { interval: weekly, day: monday }
+    ignore:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       api: { patterns: ["*"] }
 
