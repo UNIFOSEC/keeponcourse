@@ -53,6 +53,8 @@ Then click **Data source** in the sidebar, choose **Local API**, and click **Tes
 
 Without these values, the app simply runs without accounts.
 
+**Sign-in emails** for keeponcourse.com are sent through Resend (custom SMTP in Supabase) from `hello@keeponcourse.com`, signed with DKIM and covered by DMARC. The branded template is in [`supabase/email-templates/magic-link.html`](../supabase/email-templates/magic-link.html); paste it into Supabase's **Magic Link** and **Confirm signup** templates.
+
 To use **Coach**, start its proxy too (see [coach/README.md](../coach/README.md)). In development, the app expects it at `http://localhost:8787` (`.env.development`). For the published site, set `VITE_COACH_URL` in `.env.production` to your deployed Worker URL. If it's empty, the site still works, and the Coach page explains that it isn't connected.
 
 ## Deploy
