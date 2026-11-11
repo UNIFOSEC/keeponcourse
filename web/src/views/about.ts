@@ -1,6 +1,7 @@
 import { pageHeader, type Ctx, type View } from "../ui/components";
 import { h, type Child } from "../ui/dom";
 import { icon, type IconName } from "../ui/icons";
+import { SUPPORT_URL } from "../support";
 
 export function createAbout(ctx: Ctx): View {
   const sourceLine = h("p", { class: "muted" });
@@ -116,7 +117,19 @@ export function createAbout(ctx: Ctx): View {
         item("Automated tests (API, proxy and browser) and continuous deployment to GitHub Pages.", "clock"),
       ),
     ),
+    SUPPORT_URL &&
+      section(
+        "heart",
+        "Support KeepOnCourse",
+        h("p", {}, "KeepOnCourse is free, with no ads or tracking. If it helps you finish a course, you can chip in to cover the AI and hosting costs."),
+        h(
+          "div",
+          {},
+          h("a", { class: "btn btn-primary btn-sm", attrs: { href: SUPPORT_URL, target: "_blank", rel: "noopener noreferrer" } }, icon("heart", 16), h("span", {}, "Support the project")),
+        ),
+      ),
     sourceLine,
+    h("p", { class: "muted about-legal" }, h("a", { class: "link", attrs: { href: "#/privacy" } }, "Privacy policy"), " · ", h("a", { class: "link", attrs: { href: "#/terms" } }, "Terms of use")),
   );
 
   function update() {

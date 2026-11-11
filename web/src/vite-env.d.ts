@@ -7,6 +7,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_URL?: string;
   /** Supabase publishable key: public by design, limited by row-level security */
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
+  /** Optional donation page (Ko-fi, GitHub Sponsors…). Shown as "Support KeepOnCourse" when set. */
+  readonly VITE_SUPPORT_URL?: string;
 }
 
 interface ImportMeta {

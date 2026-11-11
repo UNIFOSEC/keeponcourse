@@ -1,4 +1,5 @@
 import { accountsEnabled } from "./account";
+import { SUPPORT_URL } from "./support";
 import type { App } from "./app";
 import { CoachSession } from "./coach/session";
 import { createAccountDialog } from "./ui/accountDialog";
@@ -14,10 +15,11 @@ import { initToasts, toast } from "./ui/toast";
 import { createAbout } from "./views/about";
 import { createCalendar } from "./views/calendar";
 import { createCoach } from "./views/coach";
+import { createPrivacy, createTerms } from "./views/legal";
 import { createCourses } from "./views/courses";
 import { createOverview } from "./views/overview";
 
-type Route = "overview" | "courses" | "calendar" | "coach" | "about";
+type Route = "overview" | "courses" | "calendar" | "coach" | "about" | "privacy" | "terms";
 
 const ROUTES: Record<string, Route> = {
   "": "overview",
@@ -26,15 +28,19 @@ const ROUTES: Record<string, Route> = {
   "#/calendar": "calendar",
   "#/coach": "coach",
   "#/about": "about",
+  "#/privacy": "privacy",
+  "#/terms": "terms",
 };
-const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About" };
-const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about" };
+const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About", privacy: "Privacy", terms: "Terms" };
+const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about", privacy: "#/privacy", terms: "#/terms" };
 const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   overview: createOverview,
   courses: createCourses,
   calendar: createCalendar,
   coach: createCoach,
   about: createAbout,
+  privacy: createPrivacy,
+  terms: createTerms,
 };
 
 export function mountShell(root: HTMLElement, app: App): void {
@@ -79,6 +85,13 @@ export function mountShell(root: HTMLElement, app: App): void {
       navLink("about", "info"),
     ),
     h("div", { class: "sidebar-footer" }, accountsEnabled && accountBtn, sourceBtn, themeToggle()),
+    h(
+      "nav",
+      { class: "sidebar-legal", attrs: { "aria-label": "Legal" } },
+      SUPPORT_URL && h("a", { class: "support-link", attrs: { href: SUPPORT_URL, target: "_blank", rel: "noopener noreferrer" } }, "♥ Support"),
+      h("a", { attrs: { href: "#/privacy" } }, "Privacy"),
+      h("a", { attrs: { href: "#/terms" } }, "Terms"),
+    ),
   );
 
   const skipLink = h("button", { class: "skip-link", attrs: { type: "button" }, on: { click: () => main.focus() } }, "Skip to content");

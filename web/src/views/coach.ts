@@ -272,6 +272,7 @@ export function createCoach(ctx: Ctx): View {
         { class: "muted" },
         "Your messages and course list are sent to Anthropic's Claude API to answer you. Don't share personal information. Coach can make mistakes.",
       ),
+      h("a", { class: "link", attrs: { href: "#/privacy" } }, "Read the privacy policy"),
     ),
   );
 

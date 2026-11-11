@@ -100,6 +100,15 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
       email,
       message,
       submit,
+      h(
+        "p",
+        { class: "account-consent" },
+        "By signing in, you agree to the ",
+        h("a", { class: "link", attrs: { href: "#/terms" }, on: { click: () => dialog.close() } }, "Terms"),
+        " and ",
+        h("a", { class: "link", attrs: { href: "#/privacy" }, on: { click: () => dialog.close() } }, "Privacy policy"),
+        ".",
+      ),
     );
     body.replaceChildren(form);
     requestAnimationFrame(() => email.focus());
