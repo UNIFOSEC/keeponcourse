@@ -5,7 +5,7 @@
   "name": "keeponcourse-web",
   "compatibility_date": "2026-10-01",
   // `wrangler deploy` builds first, so a deploy can never upload a missing or stale dist/
-  "build": { "command": "npm run build" },
+  "build": { "command": "npm test && npm run build" },
   "assets": { "directory": "./dist" },
   "observability": { "enabled": true },
   // Cloudflare creates the DNS records and HTTPS certificates for these itself

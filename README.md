@@ -2,6 +2,8 @@
 
 **Your AI coach for finishing any course.**
 
+[![CI](https://github.com/UNIFOSEC/keeponcourse/actions/workflows/ci.yml/badge.svg)](https://github.com/UNIFOSEC/keeponcourse/actions/workflows/ci.yml) [![CodeQL](https://github.com/UNIFOSEC/keeponcourse/actions/workflows/codeql.yml/badge.svg)](https://github.com/UNIFOSEC/keeponcourse/actions/workflows/codeql.yml)
+
 **Live:** https://keeponcourse.com · part of [Jose Ernest's portfolio](https://unifosec.github.io/#projects)
 
 KeepOnCourse helps anyone finish the courses they start, whether online classes, university modules, certifications, languages or creative skills. You track courses on a board, see what's due and what's slipping, and chat with **Coach** (Claude) to plan your study time, understand topics, and update your course list.
@@ -23,6 +25,8 @@ The current product lives in [`web/`](web/README.md) (the app) and [`coach/`](co
 | `web/` | **KeepOnCourse**, the web app (TypeScript + Vite). It has its own [README](web/README.md). |
 | `coach/` | The **Coach** proxy, a Cloudflare Worker that connects the web app's AI assistant to Claude. It has its own [README](coach/README.md). |
 | `supabase/schema.sql` | The accounts database: courses table, row-level security, grants, and account deletion. See the [web README](web/README.md). |
+| `test/` | Automated tests for the API (`npm test`) |
+| `.github/` | CI, CodeQL and Dependabot (see [Tests and CI](#tests-and-ci)) |
 | `BOLT_PROMPT.md` | The prompt that generates the dashboard in Bolt.new / Bolt.diy |
 | `package.json` | Dependencies and npm scripts |
 
@@ -46,7 +50,7 @@ KeepOnCourse API is starting...
 API will be available at: http://localhost:5000
 ```
 
-For auto-restart while you edit, run `npm run dev` (uses nodemon). To use a different port, set `PORT` before starting. On macOS/Linux that's `PORT=3000 npm start`; in PowerShell it's `$env:PORT=3000; npm start`.
+For auto-restart while you edit, run `npm run dev` (uses Node's built-in `--watch`). To use a different port, set `PORT` before starting. On macOS/Linux that's `PORT=3000 npm start`; in PowerShell it's `$env:PORT=3000; npm start`.
 
 Then open `dashboard.html` in your browser by double-clicking it. The dashboard expects the API at `http://localhost:5000/api/courses`. If you changed the port, edit `API_BASE_URL` at the top of the dashboard's `<script>`.
 
@@ -129,6 +133,36 @@ curl -i http://localhost:5000/api/courses/999          # 404
 curl -i -X POST http://localhost:5000/api/courses \
   -H "Content-Type: application/json" -d '{"name":"x"}' # 400
 ```
+
+## Tests and CI
+
+```bash
+npm test
+```
+
+This runs the API tests (`test/api.test.js`, Node's built-in test runner) against a temporary copy of the data, so `courses.json` is never changed. They cover every endpoint, validation errors, malformed JSON, CORS, and that a corrupted data file is never overwritten.
+
+Every push and pull request runs the whole suite on GitHub Actions ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)):
+
+| Job | What it checks |
+| --- | --- |
+| Course API | `npm test` in the root |
+| Web app | Type-check, unit tests (Vitest), production build |
+| Coach Worker | Type-check, tests of validation, allowances, the planner, the calendar feed and the request handler (against a scripted stand-in for Claude, so no API key or cost) |
+| Browser tests | Playwright on desktop and phone sizes, against the production build: add, edit, remove and undo a course, build a study plan, every page, no sideways scrolling, and no script errors or security-policy violations |
+| Dependency audit | `npm audit` fails on high or critical advisories |
+
+**CodeQL** scans the code for security problems on every push and weekly, and **Dependabot** opens weekly grouped dependency updates, which CI tests before they can merge.
+
+### Deploys
+
+The Cloudflare build runs the web app's unit tests first (`web/wrangler.jsonc`), so a failing test stops the deploy. To deploy only after **every** check passes, deploy from CI instead:
+
+1. In Cloudflare, create an API token from the **Edit Cloudflare Workers** template, and copy your account ID.
+2. In GitHub (Settings → Secrets and variables → Actions), add the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and the variable `DEPLOY_FROM_CI` = `true`.
+3. In Cloudflare (Workers & Pages → keeponcourse-web → Settings → Build), disconnect the Git repository, so pushes no longer deploy around the tests.
+
+From then on, each push to `main` deploys the Coach Worker and the web app after all checks pass, and then checks that the live site answers. The deploy job uses the `production` environment, so you can also require an approval there.
 
 ## CORS
 

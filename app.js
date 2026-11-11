@@ -11,7 +11,10 @@ const path = require("path");
 const app = express();
 
 // Configuration
-const DATA_FILE = path.join(__dirname, "courses.json");
+// COURSES_FILE lets tests (or a deployment) keep the data somewhere else
+const DATA_FILE = process.env.COURSES_FILE
+  ? path.resolve(process.env.COURSES_FILE)
+  : path.join(__dirname, "courses.json");
 const PORT = process.env.PORT || 5000;
 const VALID_STATUSES = ["Not Started", "In Progress", "Completed"];
 const COURSE_FIELDS = ["name", "description", "target_date", "status"];
@@ -545,12 +548,17 @@ app.use((err, req, res, next) => {
 // RUN THE APPLICATION
 // ============================================================================
 
-app.listen(PORT, () => {
-  console.log("=".repeat(60));
-  console.log("KeepOnCourse API is starting...");
-  console.log("=".repeat(60));
-  console.log(`Data will be stored in: ${path.resolve(DATA_FILE)}`);
-  console.log(`API will be available at: http://localhost:${PORT}`);
-  console.log("=".repeat(60));
-  console.log("\nPress CTRL+C to stop the server\n");
-});
+// Start the server only when run directly (`node app.js`), so tests can import the app
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log("=".repeat(60));
+    console.log("KeepOnCourse API is starting...");
+    console.log("=".repeat(60));
+    console.log(`Data will be stored in: ${path.resolve(DATA_FILE)}`);
+    console.log(`API will be available at: http://localhost:${PORT}`);
+    console.log("=".repeat(60));
+    console.log("\nPress CTRL+C to stop the server\n");
+  });
+}
+
+module.exports = app;

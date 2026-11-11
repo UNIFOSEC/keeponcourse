@@ -101,11 +101,15 @@ function sanitize(raw: unknown): PlanResult {
   if (!isObject(raw)) throw new Error("Planner returned an unexpected shape.");
   const modules = (Array.isArray(raw.modules) ? raw.modules : [])
     .filter(isObject)
-    .map((m) => ({
-      title: clampText(m.title, 80),
-      summary: clampText(m.summary, 200),
-      hours: Math.min(60, Math.max(0.25, Math.round(Number(m.hours) * 4) / 4 || 1)),
-    }))
+    .map((m) => {
+      const hours = Number(m.hours);
+      return {
+        title: clampText(m.title, 80),
+        summary: clampText(m.summary, 200),
+        // Quarter hours, 15 minutes to 60 hours; a missing estimate becomes 1 hour
+        hours: Number.isFinite(hours) ? Math.min(60, Math.max(0.25, Math.round(hours * 4) / 4)) : 1,
+      };
+    })
     .filter((m) => m.title)
     .slice(0, PLAN_LIMITS.modules);
   const weeks = Math.round(Number(raw.suggested_weeks));

@@ -65,7 +65,17 @@ The site runs on Cloudflare as a static-assets Worker (`wrangler.jsonc`), on the
 npm run deploy   # build + wrangler deploy
 ```
 
-With the repository connected in Cloudflare (Workers & Pages → keeponcourse-web → Settings → Build), every push to `main` deploys automatically. The old GitHub Pages address redirects here.
+With the repository connected in Cloudflare (Workers & Pages → keeponcourse-web → Settings → Build), every push to `main` deploys automatically. The build runs the unit tests first, so a failing test stops the deploy. To deploy only after every check passes (browser tests included), deploy from CI instead; see [Tests and CI](../README.md#tests-and-ci). The old GitHub Pages address redirects here.
+
+## Tests
+
+```bash
+npm test                          # unit tests (Vitest): validation, dates, study plans, .ics export, Markdown, demo storage, Coach's tools
+npx playwright install chromium   # once, for the browser tests
+npm run test:e2e                  # browser tests (Playwright) against the production build
+```
+
+The browser tests run on desktop and phone sizes with Coach and Supabase blocked, so they never touch live services. They fail on any script error or Content Security Policy violation. To use an installed browser instead of Playwright's, set `PW_CHANNEL=msedge` or `PW_CHANNEL=chrome`.
 
 ## Build
 
@@ -115,6 +125,3 @@ All three data sources (demo, local API, account) implement the same `CourseStor
 - **API URL restricted to localhost**, so the app can't be pointed at an outside server.
 - **Untrusted storage is sanitized.** Demo data read from localStorage is checked field by field, and anything malformed is dropped.
 
-## Roadmap
-
-- Automated tests (API and proxy with `node:test`, browser with Playwright) run in CI before each deploy.

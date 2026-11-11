@@ -65,6 +65,14 @@ In another terminal, start the web app (`cd web && npm run dev`) and open **Coac
 npm run dev:node
 ```
 
+## Tests
+
+```bash
+npm test
+```
+
+Vitest covers request validation, the daily allowances (with in-memory stand-ins for KV and the database), the syllabus planner, the calendar feed (including daylight-saving changes), and the full request handler: origin checks, error codes, rate limits and streaming. The handler tests run against `dev/mock-anthropic.mjs`, so they need no API key and cost nothing.
+
 ## Deploy
 
 ```bash
