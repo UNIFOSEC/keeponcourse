@@ -159,7 +159,7 @@ Every push and pull request runs the whole suite on GitHub Actions ([`.github/wo
 The Cloudflare build runs the web app's unit tests first (`web/wrangler.jsonc`), so a failing test stops the deploy. To deploy only after **every** check passes, deploy from CI instead:
 
 1. In Cloudflare, create an API token from the **Edit Cloudflare Workers** template, and copy your account ID.
-2. In GitHub (Settings → Secrets and variables → Actions), add the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, and the variable `DEPLOY_FROM_CI` = `true`.
+2. In GitHub (Settings → Secrets and variables → Actions), add the secrets `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`. The deploy job starts using them on the next push to `main`, or when you choose **Actions → CI → Run workflow**.
 3. In Cloudflare (Workers & Pages → keeponcourse-web → Settings → Build), disconnect the Git repository, so pushes no longer deploy around the tests.
 
 From then on, each push to `main` deploys the Coach Worker and the web app after all checks pass, and then checks that the live site answers. The deploy job uses the `production` environment, so you can also require an approval there.
