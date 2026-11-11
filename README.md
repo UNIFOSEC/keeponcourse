@@ -2,7 +2,7 @@
 
 **Your AI coach for finishing any course.**
 
-**Live demo:** https://unifosec.github.io/keeponcourse/ · part of [Jose Ernest's portfolio](https://unifosec.github.io/#projects)
+**Live:** https://keeponcourse.com · part of [Jose Ernest's portfolio](https://unifosec.github.io/#projects)
 
 KeepOnCourse helps anyone finish the courses they start, whether online classes, university modules, certifications, languages or creative skills. You track courses on a board, see what's due and what's slipping, and chat with **Coach** (Claude) to plan your study time, understand topics, and update your course list.
 

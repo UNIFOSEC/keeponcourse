@@ -2,7 +2,7 @@
 
 KeepOnCourse helps anyone finish the courses they start. You track courses from **Not Started** to **Completed** on a drag-and-drop board, see your progress and upcoming deadlines at a glance, and chat with Coach, an AI study coach, to plan and catch up.
 
-It's a TypeScript app built with Vite, with no UI framework. It builds to a static site that can be hosted anywhere, including GitHub Pages, and it can also use the course API in the parent folder.
+It's a TypeScript app built with Vite, with no UI framework. It builds to a static site, deployed to Cloudflare at **https://keeponcourse.com**, and it can also use the course API in the parent folder.
 
 ## Features
 
@@ -55,6 +55,16 @@ Without these values, the app simply runs without accounts.
 
 To use **Coach**, start its proxy too (see [coach/README.md](../coach/README.md)). In development, the app expects it at `http://localhost:8787` (`.env.development`). For the published site, set `VITE_COACH_URL` in `.env.production` to your deployed Worker URL. If it's empty, the site still works, and the Coach page explains that it isn't connected.
 
+## Deploy
+
+The site runs on Cloudflare as a static-assets Worker (`wrangler.jsonc`), on the custom domains `keeponcourse.com` and `www.keeponcourse.com`; Cloudflare manages their DNS records and HTTPS certificates. The build also writes `dist/_headers`, so the security policy is sent as real HTTP headers (CSP with `frame-ancestors`, HSTS, permissions policy) and fingerprinted assets are cached for a year.
+
+```bash
+npm run deploy   # build + wrangler deploy
+```
+
+With the repository connected in Cloudflare (Workers & Pages → keeponcourse-web → Settings → Build), every push to `main` deploys automatically. The old GitHub Pages address redirects here.
+
 ## Build
 
 ```bash
@@ -105,4 +115,4 @@ All three data sources (demo, local API, account) implement the same `CourseStor
 
 ## Roadmap
 
-- Automated tests (API and proxy with `node:test`, browser with Playwright) and continuous deployment to GitHub Pages.
+- Automated tests (API and proxy with `node:test`, browser with Playwright) run in CI before each deploy.

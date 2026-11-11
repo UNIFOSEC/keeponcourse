@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // The KeepOnCourse website on Cloudflare. A static site: the Vite build in
+  // dist/ is served as-is, with the security headers from dist/_headers.
+  "name": "keeponcourse-web",
+  "compatibility_date": "2026-10-01",
+  "assets": { "directory": "./dist" },
+  "observability": { "enabled": true },
+  // Cloudflare creates the DNS records and HTTPS certificates for these itself
+  "routes": [
+    { "pattern": "keeponcourse.com", "custom_domain": true },
+    { "pattern": "www.keeponcourse.com", "custom_domain": true }
+  ]
+}
