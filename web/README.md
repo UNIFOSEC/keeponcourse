@@ -26,10 +26,11 @@ It's a TypeScript app built with Vite, with no UI framework. It builds to a stat
 - **Accounts with sync:** sign in with a one-time email link or code (no password; the code works on any device, the link in the browser that asked for it) and your courses are stored in your account and synced across devices. You can export your data or delete your account any time, and a new account is offered a copy of your demo courses.
 - **Signed out, two data sources switchable at runtime:**
   - **Demo data** (default): sample courses in the visitor's own browser storage. Nothing is sent anywhere, so a public demo needs no server.
-  - **Local API:** the Express API from this project (`npm start` in the parent folder).
+  - **Local API** (development builds only, `npm run dev`): the Express API from this project (`npm start` in the parent folder).
 - **Built for everyone:** light and dark themes (follows the system, or set it manually), keyboard shortcuts (`N` adds a course, `/` searches), full keyboard support, visible focus states, reduced-motion support, and colour contrast of at least 4.5:1 for text.
 - **Usage statistics (private):** `#/stats`, not in the menu, shows the site owner weekly active accounts, sign-ups, sessions checked in over the last 7 days, weekly-email subscribers, Coach messages per day (signed in and anonymous), how often people hit the daily limit, 4-week retention, and an AI cost estimate, with progress toward the two Pro-tier signals (300 weekly active accounts, $50 a month). See [Usage statistics](#usage-statistics).
 - **Installable app:** add KeepOnCourse to a phone's home screen or a computer's apps (Chrome, Edge and Android show an **Install app** button; the About page explains Safari's Share → Add to Home Screen). It opens in its own window, and opens even offline: a service worker (`public/sw.js`) keeps the app shell and its hashed assets, but always loads pages from the network first, so an online visit never runs an old version. Open tabs check `version.json` now and then and offer **Reload** when a newer version is deployed. Icons are rendered from the logo with `npm run icons`.
+- **About page for learners:** what the app does, how to install it, and how data is handled, in plain words. Architecture and security internals are documented here and in the other READMEs, not on the site.
 - **Responsive:** a sidebar on desktop, a bottom tab bar on phones, and a board you can swipe sideways.
 
 ## Run it
@@ -48,7 +49,7 @@ To use the real API instead, start the server in the parent folder:
 npm start
 ```
 
-Then click **Data source** in the sidebar, choose **Local API**, and click **Test connection**.
+Then click **Data source** in the sidebar, choose **Local API**, and click **Test connection**. This option exists only in development (`npm run dev`); the production site doesn't offer it, so its security policy allows no `localhost` connections.
 
 **Accounts** use Supabase (Postgres + Auth). To set up your own project:
 
@@ -142,11 +143,11 @@ Where the numbers come from:
 
 ## Security notes
 
-- **Strict Content Security Policy** in the production build. Only this site's own scripts, styles and fonts load: no inline scripts, no CDNs, and the Inter font is self-hosted. The one optional exception is Cloudflare's Web Analytics beacon, allowed only when `VITE_CF_ANALYTICS_TOKEN` is set. Network calls are limited to the app itself, `localhost`, the Coach proxy and the Supabase project, whose origins are added from `VITE_COACH_URL` and `VITE_SUPABASE_URL` at build time.
+- **Strict Content Security Policy** in the production build. Only this site's own scripts, styles and fonts load: no inline scripts, no CDNs, and the Inter font is self-hosted. The one optional exception is Cloudflare's Web Analytics beacon, allowed only when `VITE_CF_ANALYTICS_TOKEN` is set. Network calls are limited to the app itself, the Coach proxy and the Supabase project (plus `localhost` in development, for the Local API), whose origins are added from `VITE_COACH_URL` and `VITE_SUPABASE_URL` at build time.
 - **Accounts are isolated by the database.** Row-level security means a signed-in user can only read and change their own courses; anonymous requests are refused outright. Column grants stop the app from writing ids, owners or timestamps, and the database repeats the app's validation, plus a 500-course cap. Sign-in links use the PKCE flow, so no tokens appear in the URL.
 - **Coach output is untrusted.** Tool calls are validated with the course form's rules before they're applied, and every change can be undone. Replies go through a Markdown renderer that builds DOM nodes and allows only `http(s)` links. The Coach proxy's own protections are listed in [coach/README.md](../coach/README.md#security).
 - **No `innerHTML`.** Every element is built with `document.createElement`, and all user text goes in as text nodes. That rules out stored XSS by design, not by remembering to escape.
 - **Validation on both sides.** The browser validates for instant feedback, and the API validates again with the same rules.
-- **API URL restricted to localhost**, so the app can't be pointed at an outside server.
+- **Local API only in development, and restricted to localhost**, so the production app can't be pointed at any other server.
 - **Untrusted storage is sanitized.** Demo data read from localStorage is checked field by field, and anything malformed is dropped.
 

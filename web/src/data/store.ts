@@ -30,6 +30,12 @@ export interface Settings {
 }
 
 const SETTINGS_KEY = "cch.settings.v1";
+/**
+ * The "Local API" data source (the Express server in the repository root) is
+ * a development tool, so it's only offered in development builds. The
+ * production site then needs no localhost access in its security policy.
+ */
+export const LOCAL_API_ENABLED = import.meta.env.DEV;
 export const DEFAULT_API_URL = "http://localhost:5000/api/courses";
 const DEFAULT_SETTINGS: Settings = { source: "demo", apiUrl: DEFAULT_API_URL };
 
@@ -37,7 +43,7 @@ export function loadSettings(): Settings {
   const saved = readJSON<Partial<Settings> | null>(SETTINGS_KEY, null);
   const apiUrl = typeof saved?.apiUrl === "string" ? normalizeApiUrl(saved.apiUrl) : null;
   return {
-    source: saved?.source === "api" && apiUrl ? "api" : "demo",
+    source: LOCAL_API_ENABLED && saved?.source === "api" && apiUrl ? "api" : "demo",
     apiUrl: apiUrl ?? DEFAULT_SETTINGS.apiUrl,
   };
 }

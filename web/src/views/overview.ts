@@ -85,7 +85,7 @@ export function createOverview(ctx: Ctx): View {
           { class: "row-gap" },
           h("a", { class: "btn btn-primary btn-sm", attrs: { href: "#/courses" } }, h("span", {}, "Explore courses"), icon("arrowRight", 16)),
           h("a", { class: "btn btn-secondary btn-sm", attrs: { href: "#/coach" } }, icon("sparkles", 16), h("span", {}, "Ask Coach")),
-          h("a", { class: "btn btn-secondary btn-sm", attrs: { href: "#/about" } }, h("span", {}, "How it's built")),
+          h("a", { class: "btn btn-secondary btn-sm", attrs: { href: "#/about" } }, h("span", {}, "Learn more")),
         ),
       ),
       h(

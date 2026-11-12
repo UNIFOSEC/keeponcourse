@@ -1,6 +1,6 @@
 import { errorMessage, type App } from "../app";
 import { ApiStore } from "../data/apiStore";
-import { DEFAULT_API_URL, normalizeApiUrl, type Settings } from "../data/store";
+import { DEFAULT_API_URL, LOCAL_API_ENABLED, normalizeApiUrl, type Settings } from "../data/store";
 import { h } from "./dom";
 import { icon, type IconName } from "./icons";
 import { toast } from "./toast";
@@ -95,7 +95,7 @@ export function createSettingsDialog(app: App) {
       "div",
       { class: "modal-body" },
       signedInNote,
-      h("fieldset", { class: "source-options" }, h("legend", { class: "sr-only" }, "Where courses are stored"), demo.el, api.el),
+      h("fieldset", { class: "source-options" }, h("legend", { class: "sr-only" }, "Where courses are stored"), demo.el, LOCAL_API_ENABLED && api.el),
       apiFields,
       demoFields,
     ),

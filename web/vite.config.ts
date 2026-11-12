@@ -13,9 +13,9 @@ function originOf(raw: string | undefined): string {
  *   plus what a <meta> tag can't do: frame-ancestors (clickjacking), HSTS,
  *   a permissions policy, and long caching for fingerprinted assets.
  * Scripts, styles and fonts come only from this site (the font is
- * self-hosted). Network calls may go only to localhost (the optional "Local
- * API" data source), the Coach proxy (VITE_COACH_URL) and the accounts
- * backend (VITE_SUPABASE_URL). Build-only, because Vite's dev server injects
+ * self-hosted). Network calls may go only to the Coach proxy (VITE_COACH_URL)
+ * and the accounts backend (VITE_SUPABASE_URL); the "Local API" data source
+ * is a development-only feature, so production needs no localhost access. Build-only, because Vite's dev server injects
  * inline styles.
  */
 function securityPolicy(connectOrigins: string[], analyticsToken: string): Plugin {
@@ -28,7 +28,7 @@ function securityPolicy(connectOrigins: string[], analyticsToken: string): Plugi
     "style-src 'self'",
     "font-src 'self' data:",
     "img-src 'self' data:",
-    ["connect-src 'self' http://localhost:* http://127.0.0.1:*", ...connectOrigins.filter(Boolean), ...(analytics ? ["https://cloudflareinsights.com"] : [])].join(" "),
+    ["connect-src 'self'", ...connectOrigins.filter(Boolean), ...(analytics ? ["https://cloudflareinsights.com"] : [])].join(" "),
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

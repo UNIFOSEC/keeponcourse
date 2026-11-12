@@ -3,6 +3,11 @@ import { h, type Child } from "../ui/dom";
 import { icon, type IconName } from "../ui/icons";
 import { SUPPORT_URL } from "../support";
 
+/**
+ * About KeepOnCourse, for learners: what it does, how to install it, and how
+ * their data is handled, in plain words. Technical details (architecture and
+ * security internals) live in the repository's READMEs, not on the site.
+ */
 export function createAbout(ctx: Ctx): View {
   const sourceLine = h("p", { class: "muted" });
 
@@ -20,11 +25,12 @@ export function createAbout(ctx: Ctx): View {
       h(
         "ul",
         { class: "checklist" },
-        item("Track courses from Not Started to Completed on a drag-and-drop board or in a list."),
-        item("See progress at a glance: completion rate, what's due next, and what's overdue."),
-        item("Add, edit, and remove courses, with instant validation and one-click Undo."),
-        item("Chat with Coach, an AI assistant (Claude) that plans your study time and can add or update courses for you."),
-        item("Switch between in-browser demo data and the project's own REST API."),
+        item("Track courses from Not Started to Completed on a board or in a list, and see what's due and what's slipping."),
+        item("Import a syllabus (paste it or upload a PDF) and get a study plan with sessions on the days and times you choose."),
+        item("Check in each study session, and catch up in one click when you fall behind."),
+        item("See your sessions on a calendar, and sync them to Google Calendar, Outlook or Apple Calendar."),
+        item("Chat with Coach, an AI study coach that plans your time, explains topics, and can update your courses for you."),
+        item("Get an optional weekly check-in email with your study week and your streak."),
       ),
     ),
 
@@ -47,94 +53,20 @@ export function createAbout(ctx: Ctx): View {
     ),
 
     section(
-      "code",
-      "How it's built",
-      h(
-        "div",
-        { class: "arch", attrs: { role: "img", "aria-label": "The browser app reads and writes courses through either the demo store in localStorage or the Express REST API, which saves to a JSON file." } },
-        node("monitor", "Web app", "TypeScript · Vite · no framework"),
-        h("div", { class: "arch-arrow", attrs: { "aria-hidden": "true" } }, icon("arrowRight", 20)),
-        h(
-          "div",
-          { class: "arch-stack" },
-          node("database", "Demo store", "localStorage, per visitor"),
-          h("span", { class: "arch-or" }, "or"),
-          node("server", "REST API", "Node.js · Express · JSON file"),
-          h("span", { class: "arch-or" }, "and for chat"),
-          node("sparkles", "Coach proxy", "Cloudflare Worker → Claude API"),
-        ),
-      ),
-      h(
-        "p",
-        {},
-        "Both data sources implement the same interface, so the UI doesn't know or care which one it's talking to. Validation rules are shared: the browser checks input instantly and the API checks it again.",
-      ),
-      h(
-        "p",
-        {},
-        "Coach streams replies from Claude through a small proxy that holds the API key. When Claude decides to change a course, the browser carries out the change, since that's where the data lives, and shows it as a card you can undo.",
-      ),
-      h(
-        "div",
-        { class: "tags" },
-        ["TypeScript", "Vite", "Node.js", "Express", "REST", "Claude API", "Tool use", "Streaming", "Cloudflare Workers", "Accessibility"].map((t) =>
-          h("span", { class: "tag" }, t),
-        ),
-      ),
-    ),
-
-    section(
       "shield",
-      "Security by design",
+      "Your data",
       h(
         "ul",
         { class: "checklist" },
-        item("Strict Content Security Policy: no inline scripts, no third-party requests. The font is self-hosted."),
-        item("No innerHTML. All user text is inserted as text nodes, which rules out stored XSS by construction."),
-        item("Input validated on both sides, with the same limits and a real calendar-date check."),
-        item("The API URL is restricted to localhost, so the app can't be pointed at an outside server."),
-        item("Demo data stays in the browser unless you chat with Coach, and tampered localStorage is sanitized on load."),
+        item("Without an account, your courses stay in this browser on your device."),
+        item("With an account, your courses are private to you and sync across your devices. Sign-in uses a one-time email link or code, so there's no password."),
+        item("Export your data or delete your account, with all of its courses, at any time."),
+        item("When you chat with Coach, your message and course list are sent to the AI to answer you. Chats aren't stored on our servers."),
+        item("No ads, no selling of data, and no tracking across other sites."),
       ),
+      h("p", {}, h("a", { class: "link", attrs: { href: "#/privacy" } }, "Read the privacy policy"), " for the details."),
     ),
 
-    section(
-      "user",
-      "Accounts, privately",
-      h(
-        "ul",
-        { class: "checklist" },
-        item("Passwordless sign-in with one-time email links (PKCE flow), so there are no passwords to steal or reuse."),
-        item("Postgres row-level security: the database itself guarantees each person can only see and change their own courses."),
-        item("Least-privilege grants: the app can write only the editable fields; ids, owners and timestamps are set by the database."),
-        item("The database enforces the same limits as the app, plus a per-account cap, so a modified client can't bypass them."),
-        item("Export your data any time, and delete your account and all of its courses yourself."),
-      ),
-    ),
-
-    section(
-      "sparkles",
-      "Coach, safely",
-      h(
-        "ul",
-        { class: "checklist" },
-        item("The Claude API key lives only in the proxy, never in the browser."),
-        item("The proxy accepts requests only from this site's origin, rate-limits each visitor, and caps message size and conversation length."),
-        item("The system prompt and tools are fixed server-side, and the proxy accepts only text and Coach's own tool blocks. Callers can't add tools, images or instructions."),
-        item("Course names and descriptions reach Claude tagged as data, and Claude is told not to follow instructions inside them (prompt-injection defense)."),
-        item("Claude's tool calls are treated as untrusted input: the browser validates each one with the course form's rules before applying it, and every change can be undone."),
-        item("Replies are rendered by a small Markdown renderer that builds DOM nodes and allows only http(s) links."),
-      ),
-    ),
-
-    section(
-      "flag",
-      "What's next",
-      h(
-        "ul",
-        { class: "checklist roadmap" },
-        item("Automated tests (API, proxy and browser) and continuous deployment to GitHub Pages.", "clock"),
-      ),
-    ),
     SUPPORT_URL &&
       section(
         "heart",
@@ -156,8 +88,8 @@ export function createAbout(ctx: Ctx): View {
       kind === "account"
         ? "You're signed in: your courses are stored in your account and synced across devices."
         : kind === "demo"
-          ? "You're currently using demo data stored in this browser."
-          : `You're currently connected to ${ctx.app.settings.apiUrl}.`;
+          ? "You're using demo data stored in this browser. Sign in to keep your courses in sync across devices."
+          : "You're connected to a local development server.";
   }
 
   update();
@@ -175,8 +107,4 @@ function section(iconName: IconName, title: string, ...children: Child[]): HTMLE
 
 function item(text: string, iconName: IconName = "check"): HTMLElement {
   return h("li", {}, icon(iconName, 17), h("span", {}, text));
-}
-
-function node(iconName: IconName, title: string, text: string): HTMLElement {
-  return h("div", { class: "arch-node" }, icon(iconName, 20), h("div", {}, h("strong", {}, title), h("span", { class: "muted" }, text)));
 }
