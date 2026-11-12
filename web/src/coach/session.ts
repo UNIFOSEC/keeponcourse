@@ -184,6 +184,18 @@ export class CoachSession {
     return body.to ?? "";
   }
 
+  /** Emails a study partner their invite link (the address isn't stored). */
+  async sendPartnerInvite(inviteId: number, email: string, replyTo: boolean): Promise<void> {
+    if (!this.configured) throw new CoachError("Email invites aren't available here. Copy the link instead.", "config");
+    const response = await this.fetchWithAuth("/partners/invite", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ invite_id: inviteId, email, reply_to: replyTo }),
+    });
+    const body = (await response.json().catch(() => null)) as { ok?: boolean; error?: string; code?: string } | null;
+    if (!response.ok || !body?.ok) throw new CoachError(body?.error ?? `Couldn't send the email (HTTP ${response.status}).`, body?.code);
+  }
+
   /** Asks the proxy how many messages are left today (counts nothing). */
   async refreshUsage(): Promise<void> {
     if (!this.configured) return;

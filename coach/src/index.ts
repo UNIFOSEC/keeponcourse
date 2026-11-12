@@ -13,6 +13,7 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { matchFeedPath, serveFeed } from "./calendar";
+import { handlePartnerInvite } from "./invite";
 import { handleDigestTest, handleUnsubscribe, matchUnsubscribePath, runWeeklyDigest, type DigestEnv } from "./digest";
 import { planFromSyllabus, validatePlanRequest } from "./planner";
 import { SYSTEM_PROMPT, TOOLS } from "./prompt";
@@ -75,6 +76,13 @@ export default {
       if (request.method !== "POST") return json({ error: "Use POST" }, 405, cors);
       if (!origin) return json({ error: "This origin isn't allowed to use Coach.", code: "forbidden" }, 403);
       return handleDigestTest(request, env, cors);
+    }
+
+    // Study partner invite: emails one invite link for a signed-in user
+    if (url.pathname === "/partners/invite") {
+      if (request.method !== "POST") return json({ error: "Use POST" }, 405, cors);
+      if (!origin) return json({ error: "This origin isn't allowed to use Coach.", code: "forbidden" }, 403);
+      return handlePartnerInvite(request, env, cors);
     }
 
     // Today's allowance, for the app's "N messages left today"

@@ -15,6 +15,7 @@ import {
   type Cheer,
   type PartnerInvite,
 } from "../partner";
+import { readJSON, writeJSON } from "../data/storage";
 import { cx, h, setChildren } from "./dom";
 import { icon } from "./icons";
 import { toast } from "./toast";
@@ -43,12 +44,19 @@ export function namesList(names: string[]): string {
   return `${names[0]}, ${names[1]} and ${names.length - 2} others`;
 }
 
+export type SendInviteEmail = (inviteId: number, email: string, replyTo: boolean) => Promise<void>;
+
+const EMAILED_KEY = "koc.partner.emailed";
+// Same check as the server: one @, no spaces or separators, a dot in the domain
+const EMAIL = /^[^\s@,;<>"()]{1,64}@[^\s@,;<>"()]+\.[^\s@,;<>"()]{2,}$/;
+export const looksLikeEmail = (value: string) => value.length <= 254 && EMAIL.test(value);
+
 /**
  * Study partners for signed-in users: invite people with private links,
  * choose what they see, stop sharing, and read their cheers. New cheers are
  * announced with a toast when the app opens or comes back to the front.
  */
-export function createPartnerDialog(app: App, onChange: () => void) {
+export function createPartnerDialog(app: App, onChange: () => void, sendEmail?: SendInviteEmail) {
   const state: PartnersState = { invites: null, cheers: [] };
   let loadedFor: string | null = null;
   let lastCheck = 0;
@@ -58,6 +66,11 @@ export function createPartnerDialog(app: App, onChange: () => void) {
   const label = h("input", { class: "input", attrs: { id: "partner-label", maxlength: NAME_MAX, autocomplete: "off", placeholder: "Sam, or My mentor" } });
   const displayName = h("input", { class: "input", attrs: { id: "partner-display", maxlength: NAME_MAX, autocomplete: "given-name", placeholder: "Your first name" } });
   const showNames = h("input", { attrs: { type: "checkbox", id: "partner-show-names" } });
+  const email = h("input", { class: "input", attrs: { id: "partner-email", type: "email", maxlength: 254, autocomplete: "off", placeholder: "sam@example.com", "aria-describedby": "partner-email-help" } });
+  const replyTo = h("input", { attrs: { type: "checkbox", id: "partner-reply" } });
+  // When each invite was last emailed (the addresses themselves aren't kept anywhere)
+  const emailed = (): Record<string, string> => readJSON<Record<string, string>>(EMAILED_KEY, {});
+  const markEmailed = (id: number) => writeJSON(EMAILED_KEY, { ...emailed(), [id]: new Date().toISOString() });
   const formError = h("p", { class: "field-error", attrs: { role: "alert" } });
   const create = h("button", { class: "btn btn-primary", attrs: { type: "submit" } }, icon("plus", 17), h("span", {}, "Create link"));
   const form = h(
@@ -70,6 +83,21 @@ export function createPartnerDialog(app: App, onChange: () => void) {
       h("div", { class: "field" }, h("label", { class: "field-label", attrs: { for: "partner-label" } }, "Who is it?"), label),
       h("div", { class: "field" }, h("label", { class: "field-label", attrs: { for: "partner-display" } }, "Your name, as they'll see it"), displayName),
     ),
+    sendEmail &&
+      h(
+        "div",
+        { class: "field" },
+        h("label", { class: "field-label", attrs: { for: "partner-email" } }, "Their email (optional)"),
+        email,
+        h("span", { class: "field-hint muted", attrs: { id: "partner-email-help" } }, "We email them the link once, and don't keep the address."),
+      ),
+    sendEmail &&
+      h(
+        "label",
+        { class: "account-switch", attrs: { for: "partner-reply" } },
+        replyTo,
+        h("span", {}, h("strong", {}, "Let them reply to my email"), h("span", { class: "muted" }, "They'll see your email address, so a reply reaches you.")),
+      ),
     h(
       "label",
       { class: "account-switch", attrs: { for: "partner-show-names" } },
@@ -218,7 +246,27 @@ export function createPartnerDialog(app: App, onChange: () => void) {
       }
     });
 
-    const seen = invite.last_viewed_at ? `Last looked ${ago(invite.last_viewed_at)}` : "Hasn't opened the link yet";
+    const sentAt = emailed()[invite.id];
+    const seen = invite.last_viewed_at ? `Last looked ${ago(invite.last_viewed_at)}` : sentAt ? `Invite emailed ${ago(sentAt)}` : "Hasn't opened the link yet";
+    const emailRow = sendEmail ? emailForm(invite) : null;
+    const emailBtn: HTMLButtonElement | null =
+      emailRow &&
+      h(
+        "button",
+        {
+          class: "btn btn-secondary btn-sm",
+          attrs: { type: "button", "aria-expanded": "false" },
+          on: {
+            click: () => {
+              emailRow.hidden = !emailRow.hidden;
+              emailBtn?.setAttribute("aria-expanded", String(!emailRow.hidden));
+              if (!emailRow.hidden) emailRow.querySelector("input")?.focus();
+            },
+          },
+        },
+        icon("mail", 15),
+        h("span", {}, sentAt ? "Email again" : "Email"),
+      );
     return h(
       "li",
       { class: cx("partner-invite", fresh === invite.id && "is-fresh") },
@@ -228,13 +276,59 @@ export function createPartnerDialog(app: App, onChange: () => void) {
         h("span", { class: "account-avatar account-avatar-sm", attrs: { "aria-hidden": "true" } }, (invite.label[0] ?? "?").toUpperCase()),
         h("span", { class: "partner-invite-name" }, h("strong", {}, invite.label), h("span", { class: "muted" }, `${seen}${invite.cheers ? ` · ${invite.cheers} cheer${invite.cheers === 1 ? "" : "s"}` : ""}`)),
       ),
-      h("div", { class: "partner-link-row" }, linkBox, copy, share),
+      h("div", { class: "partner-link-row" }, linkBox, copy, share, emailBtn),
+      emailRow,
       h(
         "div",
         { class: "partner-invite-foot" },
         h("label", { class: "partner-names", attrs: { for: `partner-names-${invite.id}` } }, names, h("span", {}, "Show course names")),
         stop,
       ),
+    );
+  }
+
+  /** Emailing the link for an existing invite: an address, the reply-to choice, Send. */
+  function emailForm(invite: PartnerInvite): HTMLFormElement {
+    const id = `partner-email-${invite.id}`;
+    const address = h("input", { class: "input", attrs: { id, type: "email", maxlength: 254, autocomplete: "off", placeholder: "Their email" } });
+    const reply = h("input", { attrs: { type: "checkbox", id: `${id}-reply` } });
+    const error = h("p", { class: "field-error", attrs: { role: "alert" } });
+    const send = h("button", { class: "btn btn-primary btn-sm", attrs: { type: "submit" } }, icon("mail", 15), h("span", {}, "Send"));
+    return h(
+      "form",
+      {
+        class: "partner-email-row",
+        attrs: { novalidate: true, hidden: true },
+        on: {
+          submit: async (event) => {
+            event.preventDefault();
+            const to = address.value.trim();
+            error.textContent = "";
+            if (!looksLikeEmail(to)) {
+              error.textContent = "That email address doesn't look right.";
+              address.focus();
+              return;
+            }
+            send.disabled = true;
+            send.classList.add("loading");
+            try {
+              await sendEmail!(invite.id, to, reply.checked);
+              markEmailed(invite.id);
+              toast(`Invite emailed to ${invite.label}.`, { tone: "success" });
+              render();
+            } catch (err) {
+              error.textContent = errorMessage(err);
+            } finally {
+              send.disabled = false;
+              send.classList.remove("loading");
+            }
+          },
+        },
+      },
+      h("label", { class: "sr-only", attrs: { for: id } }, `Email address for ${invite.label}`),
+      h("div", { class: "partner-link-row" }, address, send),
+      h("label", { class: "partner-names", attrs: { for: `${id}-reply` } }, reply, h("span", {}, "Let them reply to my email")),
+      error,
     );
   }
 
@@ -252,6 +346,7 @@ export function createPartnerDialog(app: App, onChange: () => void) {
     event.preventDefault();
     const who = label.value.trim();
     const me = displayName.value.trim();
+    const to = email.value.trim();
     formError.textContent = "";
     if (!who) {
       formError.textContent = "Add who you're inviting, so you can tell your partners apart.";
@@ -263,6 +358,11 @@ export function createPartnerDialog(app: App, onChange: () => void) {
       displayName.focus();
       return;
     }
+    if (to && !looksLikeEmail(to)) {
+      formError.textContent = "That email address doesn't look right. Fix it, or leave it empty and copy the link instead.";
+      email.focus();
+      return;
+    }
     if (busy) return;
     busy = true;
     create.disabled = true;
@@ -272,8 +372,22 @@ export function createPartnerDialog(app: App, onChange: () => void) {
       fresh = id;
       label.value = "";
       showNames.checked = false;
+      let mailed = false;
+      let mailError = "";
+      if (to && sendEmail) {
+        try {
+          await sendEmail(id, to, replyTo.checked);
+          markEmailed(id);
+          mailed = true;
+          email.value = "";
+          replyTo.checked = false;
+        } catch (error) {
+          mailError = errorMessage(error);
+        }
+      }
       await load(true);
-      toast(`Link created for ${who}. Copy it or share it with them.`, { tone: "success" });
+      if (mailError) toast(`Link created, but the email wasn't sent: ${mailError}`, { tone: "error" });
+      else toast(mailed ? `Link created and emailed to ${who}.` : `Link created for ${who}. Copy it or share it with them.`, { tone: "success" });
       list.querySelector<HTMLInputElement>(".is-fresh .partner-link")?.focus();
     } catch (error) {
       formError.textContent = errorMessage(error);

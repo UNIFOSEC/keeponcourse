@@ -142,6 +142,24 @@
   height: 16px;
   accent-color: var(--accent);
 }
+.partner-email-row {
+  display: grid;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.partner-email-row[hidden] {
+  display: none;
+}
+.partner-email-row .input {
+  flex: 1 1 200px;
+  min-width: 0;
+}
+.partner-email-row .field-error:empty,
+.partner-form .field-hint:empty {
+  display: none;
+}
 .partner-stop {
   color: var(--danger);
 }

@@ -52,7 +52,7 @@ const TIME = /^([01]\d|2[0-3]):[0-5]\d$/;
 const TOKEN = /^[0-9a-f]{64}$/;
 const DAY_MS = 86_400_000;
 
-const escapeHtml = (value: string) =>
+export const escapeHtml = (value: string) =>
   value.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
 function safeTimeZone(tz: string): string {
@@ -267,7 +267,7 @@ async function sendBatch(env: DigestEnv, emails: Outgoing[], idempotencyKey: str
   if (!response.ok) throw new Error(`Resend ${response.status}: ${(await response.text().catch(() => "")).slice(0, 300)}`);
 }
 
-async function rpc(env: DigestEnv, name: string, body: unknown, token?: string): Promise<Response> {
+export async function rpc(env: DigestEnv, name: string, body: unknown, token?: string): Promise<Response> {
   return fetch(`${env.SUPABASE_URL}/rest/v1/rpc/${name}`, {
     method: "POST",
     headers: {
@@ -279,7 +279,7 @@ async function rpc(env: DigestEnv, name: string, body: unknown, token?: string):
   });
 }
 
-async function sha256(text: string): Promise<string> {
+export async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(text));
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }

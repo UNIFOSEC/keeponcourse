@@ -86,6 +86,9 @@ export function createPrivacy(_ctx: Ctx): View {
       p(
         "If you invite a study partner, anyone with their private link can see a summary of your progress without signing in: the name you chose to show them, this week's study sessions, the time you studied, your streak, and each study plan's sessions, target date and whether it's on track. Course and module names are included only if you turn that on for that partner. They never see your email address, course descriptions or Coach chats. Partners can send cheers from a fixed list (no messages). We record when a link was last opened, but nothing about who opened it. Stopping sharing deletes the link at once, along with its cheers.",
       ),
+      p(
+        "If you enter a partner's email address, we send them one email with their link, through Resend, our email provider. We don't store the address, and that person gets no other email from us. Only if you choose \"Let them reply to my email\" does the email include your address, so their reply reaches you. You can send up to 5 invite emails a day.",
+      ),
     ),
 
     section(

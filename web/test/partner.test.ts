@@ -114,9 +114,71 @@ describe("wording", () => {
 });
 
 describe("Study partners dialog", () => {
-  beforeEach(() => document.body.replaceChildren());
+  beforeEach(async () => {
+    document.body.replaceChildren();
+    localStorage.clear();
+    (await import("../src/ui/toast")).initToasts(document.body);
+  });
+  const fill = (el: Element, id: string, value: string) => (el.querySelector<HTMLInputElement>(id)!.value = value);
+  const toasts = () => [...document.querySelectorAll(".toast")].map((t) => t.textContent).join(" | ");
 
-  function setup(replies: Record<string, unknown> = {}) {
+  it("emails the new link when an address is given, and remembers that it was sent", async () => {
+    const sendEmail = vi.fn(async () => {});
+    const { dialog, el } = setup({}, sendEmail);
+    dialog.open();
+    await flush();
+    fill(el, "#partner-label", "Sam");
+    fill(el, "#partner-display", "Alex");
+    fill(el, "#partner-email", "not-an-address");
+    el.querySelector<HTMLFormElement>(".partner-form")!.requestSubmit();
+    expect(el.querySelector(".field-error")!.textContent).toMatch(/doesn't look right/);
+    expect(sendEmail).not.toHaveBeenCalled();
+
+    fill(el, "#partner-email", " sam@example.com ");
+    el.querySelector<HTMLInputElement>("#partner-reply")!.checked = true;
+    el.querySelector<HTMLFormElement>(".partner-form")!.requestSubmit();
+    await flush();
+    await flush();
+    expect(sendEmail).toHaveBeenCalledWith(7, "sam@example.com", true);
+    expect(toasts()).toContain("Link created and emailed to Sam.");
+    expect(el.querySelector<HTMLInputElement>("#partner-email")!.value).toBe("");
+    expect(el.textContent).toContain("Invite emailed today");
+    expect(el.textContent).toContain("Email again");
+  });
+
+  it("keeps the link when the email fails, and can email it again from the list", async () => {
+    const sendEmail = vi.fn().mockRejectedValueOnce(new Error("You've sent 5 invite emails today.")).mockResolvedValue(undefined);
+    const { dialog, el } = setup({}, sendEmail);
+    dialog.open();
+    await flush();
+    fill(el, "#partner-label", "Sam");
+    fill(el, "#partner-display", "Alex");
+    fill(el, "#partner-email", "sam@example.com");
+    el.querySelector<HTMLFormElement>(".partner-form")!.requestSubmit();
+    await flush();
+    await flush();
+    expect(toasts()).toContain("Link created, but the email wasn't sent: You've sent 5 invite emails today.");
+    expect(el.querySelector(".partner-link")).not.toBeNull();
+
+    const row = el.querySelector<HTMLFormElement>(".partner-email-row")!;
+    expect(row.hidden).toBe(true);
+    [...el.querySelectorAll<HTMLButtonElement>(".partner-link-row button")].find((b) => b.textContent === "Email")!.click();
+    expect(row.hidden).toBe(false);
+    row.querySelector<HTMLInputElement>("input[type=email]")!.value = "sam@example.com";
+    row.requestSubmit();
+    await flush();
+    expect(sendEmail).toHaveBeenLastCalledWith(7, "sam@example.com", false);
+    expect(toasts()).toContain("Invite emailed to Sam.");
+  });
+
+  it("offers no email field when email can't be sent", async () => {
+    const { dialog, el } = setup();
+    dialog.open();
+    await flush();
+    expect(el.querySelector("#partner-email")).toBeNull();
+  });
+
+  function setup(replies: Record<string, unknown> = {}, sendEmail?: (id: number, email: string, replyTo: boolean) => Promise<void>) {
     const calls: [string, unknown][] = [];
     let invites: unknown[] = (replies.my_partners as unknown[]) ?? [];
     const rpc = vi.fn(async (name: string, args?: unknown) => {
@@ -130,7 +192,7 @@ describe("Study partners dialog", () => {
     });
     const app = { account: { signedIn: true, state: { status: "signed-in", userId: "u1", email: "a@example.com" }, db: async () => ({ rpc }) } } as unknown as App;
     const onChange = vi.fn();
-    const dialog = createPartnerDialog(app, onChange);
+    const dialog = createPartnerDialog(app, onChange, sendEmail);
     document.body.append(dialog.el);
     return { dialog, calls, onChange, el: dialog.el };
   }
@@ -164,8 +226,6 @@ describe("Study partners dialog", () => {
       { id: 2, kind: "streak", from: "Kim", seen: false, created_at: new Date().toISOString() },
     ];
     const { dialog, calls, onChange } = setup({ my_cheers: cheers });
-    const toast = await import("../src/ui/toast");
-    toast.initToasts(document.body);
     await dialog.load();
     expect(document.querySelector(".toast")?.textContent).toContain("2 new cheers from Sam and Kim");
     expect(calls.some(([name]) => name === "mark_cheers_seen")).toBe(true);

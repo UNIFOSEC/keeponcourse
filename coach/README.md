@@ -122,4 +122,6 @@ Send `Authorization: Bearer <Supabase access token>` to use a signed-in user's a
 
 `GET /unsubscribe/<token>` shows a confirm button and `POST` to the same URL unsubscribes (mail apps' one-click unsubscribe POSTs there; link scanners that only GET can't unsubscribe anyone). `POST /digest/test` (signed in, from the app) emails the caller a sample of their weekly check-in, at most 3 a day.
 
+`POST /partners/invite` (signed in, from the app) emails a study partner their invite link: `{ invite_id, email, reply_to }`. The invite must belong to the caller, the email is a fixed template whose only user text is their display name (which must look like a name), the address is used once and not stored, `reply_to` adds the caller's verified address, and each account can send 5 a day. Uses the same `RESEND_API_KEY` as the weekly email.
+
 `GET /health` returns `{"ok":true,"model":"..."}`.

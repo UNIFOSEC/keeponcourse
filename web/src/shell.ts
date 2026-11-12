@@ -69,7 +69,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   const settings = createSettingsDialog(app);
   const accountDialog = createAccountDialog(app, app.account, () => coach.reset(), coach.configured ? () => coach.sendSampleDigest() : undefined);
   const importDialog = createImportDialog(app);
-  const partnerDialog = createPartnerDialog(app, () => view?.update());
+  const partnerDialog = createPartnerDialog(app, () => view?.update(), coach.configured ? (id, email, replyTo) => coach.sendPartnerInvite(id, email, replyTo) : undefined);
   const ctx: Ctx = {
     app,
     coach,
