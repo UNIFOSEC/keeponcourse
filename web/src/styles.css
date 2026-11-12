@@ -1591,6 +1591,24 @@ dialog::backdrop {
   animation: modal-in 0.2s ease-out;
 }
 
+/* Taller than the window: the header and footer stay put and the body scrolls */
+.modal > .modal-form {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 34px);
+  max-height: calc(100dvh - 34px);
+}
+.modal > .modal-form > .modal-head,
+.modal > .modal-form > .modal-foot {
+  flex: none;
+}
+.modal > .modal-form > .modal-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 .modal-head {
   display: flex;
   align-items: center;

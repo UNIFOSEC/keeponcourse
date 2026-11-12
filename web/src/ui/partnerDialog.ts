@@ -72,10 +72,11 @@ export function createPartnerDialog(app: App, onChange: () => void, sendEmail?: 
   const emailed = (): Record<string, string> => readJSON<Record<string, string>>(EMAILED_KEY, {});
   const markEmailed = (id: number) => writeJSON(EMAILED_KEY, { ...emailed(), [id]: new Date().toISOString() });
   const formError = h("p", { class: "field-error", attrs: { role: "alert" } });
-  const create = h("button", { class: "btn btn-primary", attrs: { type: "submit" } }, icon("plus", 17), h("span", {}, "Create link"));
+  // In the footer, so it is always in view; it submits the form through the form attribute
+  const create = h("button", { class: "btn btn-primary", attrs: { type: "submit", form: "partner-form" } }, icon("plus", 17), h("span", {}, "Create link"));
   const form = h(
     "form",
-    { class: "partner-form", attrs: { novalidate: true, "aria-labelledby": "partner-form-title" }, on: { submit: (e) => void onCreate(e) } },
+    { class: "partner-form", attrs: { id: "partner-form", novalidate: true, "aria-labelledby": "partner-form-title" }, on: { submit: (e) => void onCreate(e) } },
     h("h3", { attrs: { id: "partner-form-title" } }, "Invite a partner"),
     h(
       "div",
@@ -105,7 +106,6 @@ export function createPartnerDialog(app: App, onChange: () => void, sendEmail?: 
       h("span", {}, h("strong", {}, "Show course and module names"), h("span", { class: "muted" }, "Off: they see “Course 1”, “Course 2” and your progress only.")),
     ),
     formError,
-    h("div", { class: "row-gap" }, create),
   );
 
   const list = h("div", { class: "partner-list" });
@@ -146,7 +146,7 @@ export function createPartnerDialog(app: App, onChange: () => void, sendEmail?: 
         form,
         cheersEl,
       ),
-      h("footer", { class: "modal-foot" }, h("span", { class: "spacer" }), h("button", { class: "btn btn-ghost", attrs: { type: "button" }, on: { click: () => dialog.close() } }, "Close")),
+      h("footer", { class: "modal-foot" }, h("button", { class: "btn btn-ghost", attrs: { type: "button" }, on: { click: () => dialog.close() } }, "Close"), h("span", { class: "spacer" }), create),
     ),
   );
 
@@ -154,6 +154,7 @@ export function createPartnerDialog(app: App, onChange: () => void, sendEmail?: 
   function render() {
     const invites = state.invites ?? [];
     form.hidden = invites.length >= MAX_PARTNERS;
+    create.hidden = form.hidden;
     if (!displayName.value && invites.length) displayName.value = invites[invites.length - 1].display_name;
     if (state.invites === null) {
       setChildren(list, h("p", { class: "muted" }, "Loading…"));
