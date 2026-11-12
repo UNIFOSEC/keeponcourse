@@ -97,7 +97,7 @@ export function createPrivacy(_ctx: Ctx): View {
         "Anthropic provides the Claude AI model behind Coach.",
       ),
       p(
-        "Like any website or online service, these providers process technical information such as IP addresses to deliver and secure their service. We don't use cookies; the app uses your browser's storage only for your theme, demo data and sign-in session. The font is self-hosted, so no third-party font requests are made.",
+        "Like any website or online service, these providers process technical information such as IP addresses to deliver and secure their service. We don't use cookies; the app uses your browser's storage only for your theme, demo data, sign-in session, and the email address you last asked for a sign-in email (so you don't have to type it again). The font is self-hosted, so no third-party font requests are made.",
       ),
     ),
 

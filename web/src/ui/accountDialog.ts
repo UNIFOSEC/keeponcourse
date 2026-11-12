@@ -1,10 +1,13 @@
 import type { Account } from "../account";
 import { errorMessage, type App } from "../app";
+import { readString, writeString } from "../data/storage";
 import { h } from "./dom";
 import { icon } from "./icons";
 import { toast } from "./toast";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+/** The address this browser last asked a sign-in email for, so it needn't be typed again */
+const LAST_EMAIL_KEY = "koc.signin.email";
 /** Supabase email codes are 6 digits by default (configurable up to 10) */
 const CODE = /^\d{6,10}$/;
 
@@ -58,7 +61,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
     title.textContent = "Sign in to KeepOnCourse";
     const email = h("input", {
       class: "input",
-      attrs: { id: "account-email", type: "email", autocomplete: "email", inputmode: "email", placeholder: "you@example.com", required: true },
+      attrs: { id: "account-email", type: "email", autocomplete: "email", inputmode: "email", placeholder: "you@example.com", required: true, value: readString(LAST_EMAIL_KEY) ?? "" },
     });
     const message = h("p", { class: "field-error", attrs: { role: "alert" } }, error ?? "");
     const submit = h("button", { class: "btn btn-primary", attrs: { type: "submit" } }, icon("mail", 17), h("span", {}, "Email me a sign-in link"));
@@ -83,6 +86,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
             submit.classList.add("loading");
             try {
               await account.sendLink(value);
+              writeString(LAST_EMAIL_KEY, value);
               sentTo = value;
               codeOnly = false;
               render();
@@ -113,7 +117,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
           on: {
             // Opens the code form, with any email typed so far filled in
             click: () => {
-              sentTo = email.value.trim();
+              sentTo = email.value.trim() || readString(LAST_EMAIL_KEY) || "";
               codeOnly = true;
               render();
             },
@@ -314,6 +318,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
       deleteBtn.disabled = true;
       try {
         await account.deleteAccount();
+        writeString(LAST_EMAIL_KEY, null);
         dialog.close();
         onAccountChange();
         toast("Your account and courses were deleted", { tone: "success" });

@@ -36,7 +36,10 @@ function setup() {
   return { account, $, button, el: dialog.el };
 }
 
-beforeEach(() => document.body.replaceChildren());
+beforeEach(() => {
+  document.body.replaceChildren();
+  localStorage.clear();
+});
 
 describe("sign-in dialog", () => {
   it("sends a link and code, then signs in with the code typed or pasted with spaces", async () => {
@@ -89,6 +92,24 @@ describe("sign-in dialog", () => {
     expect(account.verifyCode).not.toHaveBeenCalled();
 
     $<HTMLInputElement>("#account-code-email").value = "learner@example.com";
+    button("Sign in with code").click();
+    await flush();
+    expect(account.verifyCode).toHaveBeenCalledWith("learner@example.com", "123456");
+  });
+
+  it("remembers the address a sign-in email went to, so a code needs only the code", async () => {
+    const first = setup();
+    first.$<HTMLInputElement>("#account-email").value = "learner@example.com";
+    first.$<HTMLFormElement>("form").requestSubmit();
+    await flush();
+
+    // Later, in a fresh dialog (for example after a reload)
+    const { $, button, account } = setup();
+    expect($<HTMLInputElement>("#account-email").value).toBe("learner@example.com");
+    $<HTMLInputElement>("#account-email").value = "";
+    button("I already have a code").click();
+    expect($<HTMLInputElement>("#account-code-email").value).toBe("learner@example.com");
+    $<HTMLInputElement>("#account-code").value = "123456";
     button("Sign in with code").click();
     await flush();
     expect(account.verifyCode).toHaveBeenCalledWith("learner@example.com", "123456");
