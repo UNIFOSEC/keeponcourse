@@ -161,7 +161,7 @@ async function handleStats(request: Request, env: Env, cors: Record<string, stri
   try {
     accounts = await accountStats(env, token, userLimit);
   } catch (error) {
-    if (error instanceof StatsError) return json({ error: error.message, code: error.status === 403 ? "forbidden" : "unavailable" }, error.status, cors);
+    if (error instanceof StatsError) return json({ error: error.message, code: error.status === 403 ? "forbidden" : error.status === 401 ? "auth" : "unavailable" }, error.status, cors);
     console.error("Stats failed:", error);
     return json({ error: "Statistics are temporarily unavailable.", code: "unavailable" }, 503, cors);
   }

@@ -94,6 +94,13 @@ describe("GET /stats", () => {
     expect((await response.json()).code).toBe("forbidden");
   });
 
+  it("reports an expired sign-in as auth", async () => {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ message: "JWT expired" }, { status: 401 })));
+    const response = await worker.fetch(get({ Authorization: `Bearer ${JWT}` }), env(), ctx);
+    expect(response.status).toBe(401);
+    expect((await response.json()).code).toBe("auth");
+  });
+
   it("combines account totals, anonymous totals and a measured cost estimate", async () => {
     const fetchMock = vi.fn().mockResolvedValue(Response.json({ accounts: 12, active_7d: 5, coach_daily: [day(10), day(20, 160_000, 20_000)] }));
     vi.stubGlobal("fetch", fetchMock);
