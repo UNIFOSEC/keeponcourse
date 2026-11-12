@@ -6,7 +6,7 @@ import type { Course } from "../src/types";
 
 let accounts = 0;
 /** Each call is a different account (the weekly-email setting is cached per account) */
-function ctx(kind: "account" | "demo" = "account", weeklyOn = false) {
+function ctx(kind: "account" | "demo" = "account", weeklyOn = false, partners = 0) {
   const userId = `u${++accounts}`;
   return {
     app: {
@@ -16,6 +16,8 @@ function ctx(kind: "account" | "demo" = "account", weeklyOn = false) {
     openPlanWizard: vi.fn(),
     openCourse: vi.fn(),
     openAccount: vi.fn(),
+    openPartners: vi.fn(),
+    partners: { invites: Array.from({ length: partners }, (_, i) => ({ id: i + 1 })), cheers: [] },
   } as unknown as Ctx;
 }
 
@@ -32,7 +34,7 @@ describe("Getting started", () => {
   it("starts at step 1 with ways to add a course", () => {
     const c = ctx();
     const card = gettingStartedCard(c, [], () => {})!;
-    expect(card.textContent).toContain("0 of 5 done");
+    expect(card.textContent).toContain("0 of 6 done");
     expect(card.querySelector(".is-next")?.textContent).toContain("Add the course you're taking");
     [...card.querySelectorAll("button")].find((b) => b.textContent?.includes("Import a syllabus"))!.click();
     expect(c.openPlanWizard).toHaveBeenCalled();
@@ -47,7 +49,19 @@ describe("Getting started", () => {
 
     const plan = { version: 1, days: [1], session_minutes: 60, start_time: "19:00", start_date: "2026-11-02", modules: [{ title: "M", summary: "", hours: 1, done: false }], sessions: [{ date: "2026-11-02", minutes: 60, module: 0, status: "done" as const }] } as Course["plan"];
     const card = gettingStartedCard(c, [course({ plan })], rerender)!;
-    expect(card.textContent).toContain("4 of 5 done"); // course, plan, check-in, weekly email
+    expect(card.textContent).toContain("4 of 6 done"); // course, plan, check-in, weekly email
+    expect(card.querySelector(".is-next")?.textContent).toContain("Invite a study partner");
+    [...card.querySelectorAll("button")].find((b) => b.textContent?.includes("Invite someone"))!.click();
+    expect(c.openPartners).toHaveBeenCalled();
+  });
+
+  it("counts a study partner once one is invited", async () => {
+    const c = ctx("account", true, 1);
+    gettingStartedCard(c, [], () => {});
+    await flush();
+    const plan = { version: 1, days: [1], session_minutes: 60, start_time: "19:00", start_date: "2026-11-02", modules: [{ title: "M", summary: "", hours: 1, done: false }], sessions: [{ date: "2026-11-02", minutes: 60, module: 0, status: "done" as const }] } as Course["plan"];
+    const card = gettingStartedCard(c, [course({ plan })], () => {})!;
+    expect(card.textContent).toContain("5 of 6 done");
     expect(card.querySelector(".is-next")?.textContent).toContain("Put KeepOnCourse on your phone");
   });
 

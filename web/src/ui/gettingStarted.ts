@@ -6,8 +6,8 @@ import { cx, h } from "./dom";
 import { icon, type IconName } from "./icons";
 
 /**
- * "Getting started" on the Overview for a new account: five steps from an
- * empty list to a working routine. Each ticks itself off as it's done; the
+ * "Getting started" on the Overview for a new account: six steps from an
+ * empty list to a working routine, with someone following along. Each ticks itself off as it's done; the
  * card disappears when all are done, or when hidden.
  */
 
@@ -78,6 +78,17 @@ export function gettingStartedCard(ctx: Ctx, courses: Course[], rerender: () => 
       text: "A short email every Monday with your study week and anything to catch up on.",
       action: h("button", { class: "btn btn-secondary btn-sm", attrs: { type: "button" }, on: { click: () => ctx.openAccount() } }, h("span", {}, "Turn it on")),
     },
+    ...(ctx.openPartners
+      ? [
+          {
+            done: (ctx.partners?.invites?.length ?? 0) > 0,
+            icon: "users" as const,
+            title: "Invite a study partner",
+            text: "Share your progress with a friend or mentor. They can cheer you on, with no account needed.",
+            action: h("button", { class: "btn btn-secondary btn-sm", attrs: { type: "button" }, on: { click: () => ctx.openPartners?.() } }, icon("plus", 15), h("span", {}, "Invite someone")),
+          },
+        ]
+      : []),
     {
       done: isInstalled(),
       icon: "download",
