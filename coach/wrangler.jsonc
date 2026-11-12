@@ -5,6 +5,8 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
+  // Daily at 00:15 UTC: store yesterday's anonymous Coach totals (src/stats.ts)
+  "triggers": { "crons": ["15 0 * * *"] },
   "vars": {
     // Origins allowed to call Coach. Add your GitHub Pages origin before deploying.
     "ALLOWED_ORIGINS": "https://keeponcourse.com,https://www.keeponcourse.com,https://unifosec.github.io,http://localhost:5173,http://localhost:4173",

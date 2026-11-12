@@ -38,7 +38,7 @@ type CoachEvent =
   | { type: "done"; stop_reason: string | null; content: ContentBlock[] }
   | { type: "error"; code: string; message: string };
 
-class CoachError extends Error {
+export class CoachError extends Error {
   constructor(
     message: string,
     readonly code = "error",
@@ -161,6 +161,15 @@ export class CoachSession {
       throw new CoachError(body?.error ?? `Coach request failed (HTTP ${response.status}).`, body?.code);
     }
     return body.plan;
+  }
+
+  /** Usage statistics for the site owner (the proxy and database refuse anyone else). */
+  async stats<T>(): Promise<T> {
+    if (!this.configured) throw new CoachError("Coach isn't connected, so there are no statistics.", "config");
+    const response = await this.fetchWithAuth("/stats", { method: "GET" });
+    const body = (await response.json().catch(() => null)) as (T & { error?: string; code?: string }) | null;
+    if (!response.ok || !body) throw new CoachError(body?.error ?? `Statistics request failed (HTTP ${response.status}).`, body?.code);
+    return body;
   }
 
   /** Asks the proxy how many messages are left today (counts nothing). */

@@ -205,3 +205,120 @@ revoke all on function public.my_calendar_feed(text, boolean) from public, anon;
 grant execute on function public.my_calendar_feed(text, boolean) to authenticated;
 revoke all on function public.calendar_feed(text) from public;
 grant execute on function public.calendar_feed(text) to anon, authenticated;
+
+-- ------------------------------------------------------------------ stats
+
+-- Tokens Claude used for each user's Coach replies, per day (for cost
+-- estimates). Written by the Coach proxy with the user's own sign-in token,
+-- like the message count. A user could only ever inflate their own numbers,
+-- which affects nothing but the statistics.
+alter table public.coach_usage add column if not exists input_tokens       bigint not null default 0;
+alter table public.coach_usage add column if not exists output_tokens      bigint not null default 0;
+alter table public.coach_usage add column if not exists cache_read_tokens  bigint not null default 0;
+alter table public.coach_usage add column if not exists cache_write_tokens bigint not null default 0;
+
+create or replace function public.record_coach_tokens(
+  input_tokens bigint, output_tokens bigint, cache_read_tokens bigint, cache_write_tokens bigint
+)
+returns void language plpgsql security definer set search_path = '' as $$
+declare
+  cap constant bigint := 2000000; -- far above any single reply
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  update public.coach_usage set
+    input_tokens       = public.coach_usage.input_tokens       + least(greatest(record_coach_tokens.input_tokens, 0), cap),
+    output_tokens      = public.coach_usage.output_tokens      + least(greatest(record_coach_tokens.output_tokens, 0), cap),
+    cache_read_tokens  = public.coach_usage.cache_read_tokens  + least(greatest(record_coach_tokens.cache_read_tokens, 0), cap),
+    cache_write_tokens = public.coach_usage.cache_write_tokens + least(greatest(record_coach_tokens.cache_write_tokens, 0), cap)
+  where user_id = auth.uid() and day = (now() at time zone 'utc')::date;
+end $$;
+
+revoke all on function public.record_coach_tokens(bigint, bigint, bigint, bigint) from public, anon;
+grant execute on function public.record_coach_tokens(bigint, bigint, bigint, bigint) to authenticated;
+
+-- Accounts allowed to see the usage statistics (the site owner). Nobody can
+-- read or change this list from the app; add yourself once in the SQL Editor:
+--   insert into public.stats_viewers (user_id)
+--   select id from auth.users where email = 'you@example.com'
+--   on conflict do nothing;
+create table if not exists public.stats_viewers (
+  user_id uuid primary key references auth.users (id) on delete cascade
+);
+alter table public.stats_viewers enable row level security;
+revoke all on public.stats_viewers from anon, authenticated;
+
+-- Totals only: no names, emails or course content ever leave this function.
+-- "Active" means the account used Coach, or added or changed a course, that day.
+create or replace function public.app_stats(user_limit integer default 60)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+declare
+  today date := (now() at time zone 'utc')::date;
+  result jsonb;
+begin
+  if auth.uid() is null or not exists (select 1 from public.stats_viewers v where v.user_id = auth.uid()) then
+    raise exception 'Not allowed.' using errcode = 'insufficient_privilege';
+  end if;
+
+  with activity as (
+    select u.user_id, u.day from public.coach_usage u where u.day > today - 63
+    union
+    select c.user_id, (c.created_at at time zone 'utc')::date from public.courses c
+      where c.created_at > now() - interval '63 days'
+    union
+    select c.user_id, (c.updated_at at time zone 'utc')::date from public.courses c
+      where c.updated_at > now() - interval '63 days'
+  ),
+  days as (
+    select (today - n)::date as day from generate_series(0, 29) n
+  ),
+  coach as (
+    select d.day,
+           coalesce(sum(least(u.count, user_limit)) filter (where u.user_id is not null), 0) as messages,
+           count(u.user_id) filter (where u.count > 0)        as people,
+           count(u.user_id) filter (where u.count > user_limit) as limit_hits,
+           coalesce(sum(u.input_tokens), 0)                    as input_tokens,
+           coalesce(sum(u.output_tokens), 0)                   as output_tokens,
+           coalesce(sum(u.cache_read_tokens), 0)               as cache_read_tokens,
+           coalesce(sum(u.cache_write_tokens), 0)              as cache_write_tokens
+      from days d left join public.coach_usage u on u.day = d.day
+     group by d.day
+  )
+  select jsonb_build_object(
+    'generated_at', now(),
+    'accounts',     (select count(*) from auth.users),
+    'signups_7d',   (select count(*) from auth.users where created_at > now() - interval '7 days'),
+    'signups_30d',  (select count(*) from auth.users where created_at > now() - interval '30 days'),
+    'active_7d',    (select count(distinct a.user_id) from activity a where a.day > today - 7),
+    'active_30d',   (select count(distinct a.user_id) from activity a where a.day > today - 30),
+    'weekly_active', (
+      select jsonb_agg(jsonb_build_object(
+               'week_end', today - 7 * w,
+               'active', (select count(distinct a.user_id) from activity a
+                           where a.day > today - 7 * w - 7 and a.day <= today - 7 * w))
+             order by w desc)
+        from generate_series(0, 7) w),
+    'retention_4w', (
+      select jsonb_build_object(
+               'cohort', count(*),
+               'active', count(*) filter (where exists (
+                 select 1 from activity a where a.user_id = u.id and a.day > today - 7)))
+        from auth.users u
+       where u.created_at <= now() - interval '28 days' and u.created_at > now() - interval '56 days'),
+    'courses',        (select count(*) from public.courses),
+    'courses_with_plan', (select count(*) from public.courses where plan is not null),
+    'calendar_feeds', (select count(*) from public.calendar_feeds),
+    'coach_daily', (
+      select jsonb_agg(jsonb_build_object(
+               'day', c.day, 'messages', c.messages, 'people', c.people, 'limit_hits', c.limit_hits,
+               'input_tokens', c.input_tokens, 'output_tokens', c.output_tokens,
+               'cache_read_tokens', c.cache_read_tokens, 'cache_write_tokens', c.cache_write_tokens)
+             order by c.day)
+        from coach c)
+  ) into result;
+  return result;
+end $$;
+
+revoke all on function public.app_stats(integer) from public, anon;
+grant execute on function public.app_stats(integer) to authenticated;

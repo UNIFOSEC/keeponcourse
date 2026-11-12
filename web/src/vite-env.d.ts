@@ -9,6 +9,8 @@ interface ImportMetaEnv {
   readonly VITE_SUPABASE_PUBLISHABLE_KEY?: string;
   /** Optional donation page (Ko-fi, GitHub Sponsors…). Shown as "Support KeepOnCourse" when set. */
   readonly VITE_SUPPORT_URL?: string;
+  /** Optional Cloudflare Web Analytics site token: cookie-free visitor counts (see vite.config.ts) */
+  readonly VITE_CF_ANALYTICS_TOKEN?: string;
 }
 
 interface ImportMeta {

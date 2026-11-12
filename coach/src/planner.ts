@@ -121,7 +121,12 @@ function sanitize(raw: unknown): PlanResult {
   };
 }
 
-export async function planFromSyllabus(client: Anthropic, model: string, input: PlanRequest): Promise<PlanResult> {
+export async function planFromSyllabus(
+  client: Anthropic,
+  model: string,
+  input: PlanRequest,
+  onUsage?: (usage: Anthropic.Usage) => void,
+): Promise<PlanResult> {
   const ask = `${input.nameHint ? `The learner calls this course "${input.nameHint}". ` : ""}Create the study outline.`;
   const content: Anthropic.ContentBlockParam[] = input.pdfBase64
     ? [
@@ -138,6 +143,7 @@ export async function planFromSyllabus(client: Anthropic, model: string, input: 
     output_config: { effort: "low", format: { type: "json_schema", schema: SCHEMA } },
   });
 
+  if (response.usage) onUsage?.(response.usage);
   if (response.stop_reason === "refusal") throw new RequestError("Coach couldn't plan from that material. Try a different syllabus.");
   if (response.stop_reason === "max_tokens") throw new RequestError("That syllabus is too long to plan in one go. Try a shorter section.");
   const text = response.content.find((b): b is Anthropic.TextBlock => b.type === "text")?.text;

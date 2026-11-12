@@ -108,4 +108,6 @@ Send `Authorization: Bearer <Supabase access token>` to use a signed-in user's a
 
 `GET /usage` returns today's allowance without counting anything: `{"signedIn":false,"limit":15,"used":3,"remaining":12}`.
 
+`GET /stats` returns usage statistics for the site owner: account totals from the database function `app_stats()` (called with the caller's sign-in token, so the database decides who may see them; anyone not in `stats_viewers` gets 403), the last 30 days of anonymous totals, and a cost estimate from the tokens recorded for signed-in replies. A daily cron trigger (00:15 UTC, `wrangler.jsonc`) stores yesterday's anonymous totals before the per-visitor counters expire; the stored totals hold only numbers.
+
 `GET /health` returns `{"ok":true,"model":"..."}`.

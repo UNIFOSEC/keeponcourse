@@ -16,10 +16,11 @@ import { createAbout } from "./views/about";
 import { createCalendar } from "./views/calendar";
 import { createCoach } from "./views/coach";
 import { createPrivacy, createTerms } from "./views/legal";
+import { createStats } from "./views/stats";
 import { createCourses } from "./views/courses";
 import { createOverview } from "./views/overview";
 
-type Route = "overview" | "courses" | "calendar" | "coach" | "about" | "privacy" | "terms";
+type Route = "overview" | "courses" | "calendar" | "coach" | "about" | "privacy" | "terms" | "stats";
 
 const ROUTES: Record<string, Route> = {
   "": "overview",
@@ -30,9 +31,11 @@ const ROUTES: Record<string, Route> = {
   "#/about": "about",
   "#/privacy": "privacy",
   "#/terms": "terms",
+  // Private, not in the menu: usage statistics for the site owner
+  "#/stats": "stats",
 };
-const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About", privacy: "Privacy", terms: "Terms" };
-const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about", privacy: "#/privacy", terms: "#/terms" };
+const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About", privacy: "Privacy", terms: "Terms", stats: "Stats" };
+const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about", privacy: "#/privacy", terms: "#/terms", stats: "#/stats" };
 const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   overview: createOverview,
   courses: createCourses,
@@ -41,6 +44,7 @@ const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   about: createAbout,
   privacy: createPrivacy,
   terms: createTerms,
+  stats: createStats,
 };
 
 export function mountShell(root: HTMLElement, app: App): void {

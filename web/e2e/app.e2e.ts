@@ -41,7 +41,7 @@ test("the overview loads with the sample courses", async ({ page }) => {
 });
 
 test("every page opens without errors", async ({ page }) => {
-  for (const route of ["", "courses", "calendar", "coach", "about", "privacy", "terms"]) {
+  for (const route of ["", "courses", "calendar", "coach", "about", "privacy", "terms", "stats"]) {
     await page.goto(`./#/${route}`);
     await expect(page.locator("main h1").first()).toBeVisible();
   }
@@ -109,4 +109,13 @@ test("the layout never scrolls sideways", async ({ page }) => {
     const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
     expect(overflow, `#/${route}`).toBeLessThanOrEqual(0);
   }
+});
+
+test("the private Stats page asks visitors to sign in and shows no numbers", async ({ page }) => {
+  await page.goto("./#/stats");
+  await expect(page.getByRole("heading", { name: "Stats", level: 1 })).toBeVisible();
+  await expect(page.getByText("Sign in to see statistics")).toBeVisible();
+  await expect(page.locator(".kpi")).toHaveCount(0);
+  // Not linked from the menu
+  await expect(page.locator('nav a[href="#/stats"]')).toHaveCount(0);
 });

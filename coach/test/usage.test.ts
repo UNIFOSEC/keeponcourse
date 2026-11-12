@@ -1,17 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { peekUsage, UsageError, useMessage, type UsageEnv } from "../src/usage";
-
-/** In-memory stand-in for Workers KV */
-function memoryKv() {
-  const data = new Map<string, string>();
-  return {
-    data,
-    kv: {
-      get: async (key: string) => data.get(key) ?? null,
-      put: async (key: string, value: string) => void data.set(key, value),
-    } as unknown as KVNamespace,
-  };
-}
+import { memoryKv } from "./memoryKv";
 
 const JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEifQ.c2lnbmF0dXJlLXRlc3Q";
 const anon = (ip = "203.0.113.7") => new Request("https://coach.example/chat", { headers: { "CF-Connecting-IP": ip } });

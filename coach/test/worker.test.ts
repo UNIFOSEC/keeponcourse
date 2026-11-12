@@ -4,8 +4,9 @@
  */
 import { spawn, type ChildProcess } from "node:child_process";
 import { fileURLToPath } from "node:url";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import worker, { type Env } from "../src/index";
+import { memoryKv } from "./memoryKv";
 
 const MOCK_PORT = 9188;
 const MOCK_URL = `http://127.0.0.1:${MOCK_PORT}`;
@@ -26,18 +27,13 @@ afterAll(() => {
   mock?.kill();
 });
 
-function memoryKv() {
-  const data = new Map<string, string>();
-  return { get: async (k: string) => data.get(k) ?? null, put: async (k: string, v: string) => void data.set(k, v) } as unknown as KVNamespace;
-}
-
 function makeEnv(overrides: Partial<Env> = {}): Env {
   return {
     ANTHROPIC_API_KEY: "test-key-not-real",
     ANTHROPIC_BASE_URL: MOCK_URL,
     ALLOWED_ORIGINS: `${APP},http://localhost:5173`,
     ANON_DAILY_LIMIT: "15",
-    COACH_USAGE: memoryKv(),
+    COACH_USAGE: memoryKv().kv,
     ...overrides,
   };
 }
@@ -154,5 +150,49 @@ describe("POST /plan", () => {
 
   it("rejects material it can't use", async () => {
     expect((await call(post("/plan", { text: "too short" }))).response.status).toBe(400);
+  });
+});
+
+describe("signed-in usage", () => {
+  const JWT = "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1c2VyLTEifQ.c2lnbmF0dXJlLXRlc3Q";
+  const realFetch = globalThis.fetch;
+
+  /** Supabase stand-in: counts messages and captures token records; everything else goes to the mock Claude API. */
+  function stubDatabase() {
+    const recorded: Record<string, number>[] = [];
+    vi.stubGlobal("fetch", async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input instanceof Request ? input.url : input);
+      if (!url.startsWith("https://db.example/")) return realFetch(input, init);
+      if (url.endsWith("/rpc/use_coach_message")) return Response.json(1);
+      if (url.endsWith("/rpc/record_coach_tokens")) {
+        recorded.push(JSON.parse(String(init?.body)));
+        return new Response(null, { status: 204 });
+      }
+      return new Response("unexpected", { status: 500 });
+    });
+    return recorded;
+  }
+  const signedInEnv = () => makeEnv({ SUPABASE_URL: "https://db.example", SUPABASE_PUBLISHABLE_KEY: "sb_publishable_test" });
+
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("records the tokens of a chat reply against the user", async () => {
+    const recorded = stubDatabase();
+    const { response } = await call(post("/chat", chat("What should I study next?"), { Authorization: `Bearer ${JWT}` }), signedInEnv());
+    expect(response.status).toBe(200);
+    expect(recorded).toEqual([{ input_tokens: 100, output_tokens: 42, cache_read_tokens: 0, cache_write_tokens: 0 }]);
+  });
+
+  it("records the tokens of a syllabus plan", async () => {
+    const recorded = stubDatabase();
+    const { response } = await call(post("/plan", { text: "Intro to Python\nWeek 1: Variables\nWeek 2: Loops" }, { Authorization: `Bearer ${JWT}` }), signedInEnv());
+    expect(response.status).toBe(200);
+    expect(recorded).toEqual([{ input_tokens: 200, output_tokens: 120, cache_read_tokens: 0, cache_write_tokens: 0 }]);
+  });
+
+  it("records nothing for anonymous visitors", async () => {
+    const recorded = stubDatabase();
+    await call(post("/chat", chat("hi")), signedInEnv());
+    expect(recorded).toEqual([]);
   });
 });

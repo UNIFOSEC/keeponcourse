@@ -9,6 +9,8 @@ import { h, type Child } from "../ui/dom";
 
 const EFFECTIVE = "November 11, 2026";
 const CONTACT_URL = "https://unifosec.github.io/#contact";
+/** Cookie-free visitor counts, only when a Cloudflare Web Analytics token is configured (see vite.config.ts) */
+const WEB_ANALYTICS = Boolean((import.meta.env.VITE_CF_ANALYTICS_TOKEN ?? "").trim());
 
 const section = (title: string, ...children: Child[]) => h("section", { class: "legal-section" }, h("h2", {}, title), ...children);
 const p = (...children: Child[]) => h("p", {}, ...children);
@@ -29,7 +31,7 @@ function page(title: string, intro: string, ...sections: HTMLElement[]): View {
 export function createPrivacy(_ctx: Ctx): View {
   return page(
     "Privacy policy",
-    "KeepOnCourse is a free learning planner. This policy explains, in plain language, what data it handles, where that data goes, and the choices you have. We don't sell data, show ads, or use tracking or analytics tools.",
+    "KeepOnCourse is a free learning planner. This policy explains, in plain language, what data it handles, where that data goes, and the choices you have. We don't sell data, show ads, or track you across other sites.",
 
     section(
       "Using KeepOnCourse without an account",
@@ -45,7 +47,7 @@ export function createPrivacy(_ctx: Ctx): View {
         "Your email address, used only to send you sign-in links. There's no password.",
         "Your courses and study plans (names, descriptions, dates, statuses, modules and scheduled sessions).",
         "If you turn on calendar sync: a private calendar link and your time zone.",
-        "A count of how many Coach messages you've used today, so the daily allowance works.",
+        "Daily counts of your Coach messages and of the AI tokens they used, so the daily allowance works and we know what Coach costs to run.",
       ),
       p("This data is stored with Supabase, our database and sign-in provider. Each account can only ever read its own data; this is enforced by the database itself."),
     ),
@@ -65,8 +67,19 @@ export function createPrivacy(_ctx: Ctx): View {
     section(
       "Usage limits and abuse prevention",
       p(
-        "To keep Coach free, each person has a daily message allowance. For signed-in users it's counted per account. For visitors without an account, it's counted using a one-way hash of the IP address and the date; the IP address itself is never stored, and these counts are deleted after two days. Requests are also rate-limited per IP address.",
+        "To keep Coach free, each person has a daily message allowance. For signed-in users it's counted per account. For visitors without an account, it's counted using a one-way hash of the IP address and the date; the IP address itself is never stored, and these counts are deleted after two days. We keep only each day's totals (how many visitors used Coach and how many messages they sent), with no hash or IP address. Requests are also rate-limited per IP address.",
       ),
+    ),
+
+    section(
+      "Usage statistics",
+      p(
+        "To run KeepOnCourse and decide how to keep it going, we look at totals only: how many accounts were active in a week, how many Coach messages were answered, how often the daily limit was reached, and what Coach costs. Only the site owner can see them, and they never include names, email addresses, course content or chats.",
+      ),
+      WEB_ANALYTICS &&
+        p(
+          "We also use Cloudflare Web Analytics to count page visits. It doesn't use cookies or other storage on your device and doesn't build a profile of you; it reports totals such as page views, countries and browsers.",
+        ),
     ),
 
     section(
@@ -79,8 +92,7 @@ export function createPrivacy(_ctx: Ctx): View {
     section(
       "Service providers",
       list(
-        "GitHub Pages hosts the website.",
-        "Cloudflare runs our Coach and calendar server.",
+        "Cloudflare hosts the website and runs our Coach and calendar server.",
         "Supabase stores accounts and synced data, and sends sign-in emails.",
         "Anthropic provides the Claude AI model behind Coach.",
       ),

@@ -25,6 +25,7 @@ It's a TypeScript app built with Vite, with no UI framework. It builds to a stat
   - **Demo data** (default): sample courses in the visitor's own browser storage. Nothing is sent anywhere, so a public demo needs no server.
   - **Local API:** the Express API from this project (`npm start` in the parent folder).
 - **Built for everyone:** light and dark themes (follows the system, or set it manually), keyboard shortcuts (`N` adds a course, `/` searches), full keyboard support, visible focus states, reduced-motion support, and colour contrast of at least 4.5:1 for text.
+- **Usage statistics (private):** `#/stats`, not in the menu, shows the site owner weekly active accounts, sign-ups, Coach messages per day (signed in and anonymous), how often people hit the daily limit, 4-week retention, and an AI cost estimate, with progress toward the two Pro-tier signals (300 weekly active accounts, $50 a month). See [Usage statistics](#usage-statistics).
 - **Responsive:** a sidebar on desktop, a bottom tab bar on phones, and a board you can swipe sideways.
 
 ## Run it
@@ -115,9 +116,29 @@ src/
 
 All three data sources (demo, local API, account) implement the same `CourseStore` interface, so the UI never needs to know which one it's using.
 
+## Usage statistics
+
+The Stats page (`https://keeponcourse.com/#/stats`) shows totals only, never names, emails, course content or chats, and only to accounts listed in the database:
+
+1. Re-run [`supabase/schema.sql`](../supabase/schema.sql) in the Supabase **SQL Editor** (it adds the statistics functions and token columns).
+2. Sign in to KeepOnCourse once with your own email, then add your account as a viewer in the SQL Editor:
+
+   ```sql
+   insert into public.stats_viewers (user_id)
+   select id from auth.users where email = 'you@example.com'
+   on conflict do nothing;
+   ```
+
+Where the numbers come from:
+
+- **Accounts:** the database function `app_stats()`. "Active" means the account used Coach, or added or changed a course, that day. Demo-mode visitors keep everything in their browser, so they aren't counted.
+- **Anonymous Coach use:** per-visitor counters in Workers KV (a hash, kept two days), added up into daily totals by a daily cron job in the Coach Worker.
+- **AI cost:** the Coach Worker records the tokens of each signed-in reply; the page prices them for the configured model and applies the average to all messages. The exact charges are in the Anthropic Console, where you can also set a monthly spend limit.
+- **Visitors (optional):** set `VITE_CF_ANALYTICS_TOKEN` to a [Cloudflare Web Analytics](https://developers.cloudflare.com/web-analytics/) site token to count page visits without cookies. The build then adds Cloudflare's beacon and allows it in the security policy, and the privacy policy mentions it. When it's empty, nothing is added.
+
 ## Security notes
 
-- **Strict Content Security Policy** in the production build. Only this site's own scripts, styles and fonts load: no inline scripts, no CDNs, and the Inter font is self-hosted. Network calls are limited to the app itself, `localhost`, the Coach proxy and the Supabase project, whose origins are added from `VITE_COACH_URL` and `VITE_SUPABASE_URL` at build time.
+- **Strict Content Security Policy** in the production build. Only this site's own scripts, styles and fonts load: no inline scripts, no CDNs, and the Inter font is self-hosted. The one optional exception is Cloudflare's Web Analytics beacon, allowed only when `VITE_CF_ANALYTICS_TOKEN` is set. Network calls are limited to the app itself, `localhost`, the Coach proxy and the Supabase project, whose origins are added from `VITE_COACH_URL` and `VITE_SUPABASE_URL` at build time.
 - **Accounts are isolated by the database.** Row-level security means a signed-in user can only read and change their own courses; anonymous requests are refused outright. Column grants stop the app from writing ids, owners or timestamps, and the database repeats the app's validation, plus a 500-course cap. Sign-in links use the PKCE flow, so no tokens appear in the URL.
 - **Coach output is untrusted.** Tool calls are validated with the course form's rules before they're applied, and every change can be undone. Replies go through a Markdown renderer that builds DOM nodes and allows only `http(s)` links. The Coach proxy's own protections are listed in [coach/README.md](../coach/README.md#security).
 - **No `innerHTML`.** Every element is built with `document.createElement`, and all user text goes in as text nodes. That rules out stored XSS by design, not by remembering to escape.

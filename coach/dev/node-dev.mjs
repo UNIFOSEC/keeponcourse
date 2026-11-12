@@ -40,11 +40,20 @@ const env = {
   ...readDevVars(),
   // In-memory stand-in for the COACH_USAGE KV namespace (resets on restart)
   COACH_USAGE: {
-    async get(key) {
-      return kv.get(key) ?? null;
+    async get(key, type) {
+      const value = kv.get(key)?.value ?? null;
+      return type === "json" && value !== null ? JSON.parse(value) : value;
     },
-    async put(key, value) {
-      kv.set(key, value);
+    async getWithMetadata(key) {
+      const entry = kv.get(key);
+      return { value: entry?.value ?? null, metadata: entry?.metadata ?? null };
+    },
+    async put(key, value, options = {}) {
+      kv.set(key, { value, metadata: options.metadata ?? null });
+    },
+    async list({ prefix = "" } = {}) {
+      const keys = [...kv.entries()].filter(([name]) => name.startsWith(prefix)).map(([name, e]) => ({ name, metadata: e.metadata }));
+      return { keys, list_complete: true };
     },
   },
   CHAT_LIMITER: {

@@ -10,6 +10,8 @@
  * hash of their IP address and the day, so no IP is ever stored.
  */
 
+import type { AnonMeta, TokenCounts } from "./stats";
+
 export interface UsageEnv {
   SUPABASE_URL?: string;
   SUPABASE_PUBLISHABLE_KEY?: string;
@@ -36,7 +38,7 @@ export class UsageError extends Error {
   }
 }
 
-const limitOf = (raw: string | undefined, fallback: number) => {
+export const limitOf = (raw: string | undefined, fallback: number) => {
   const n = Number(raw);
   return Number.isInteger(n) && n > 0 ? n : fallback;
 };
@@ -48,7 +50,7 @@ async function sha256(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
-function bearerToken(request: Request): string | null {
+export function bearerToken(request: Request): string | null {
   const header = request.headers.get("Authorization") ?? "";
   const match = /^Bearer\s+([A-Za-z0-9._~+/=-]{20,4096})$/.exec(header.trim());
   return match ? match[1] : null;
@@ -94,8 +96,16 @@ export async function peekUsage(request: Request, env: UsageEnv): Promise<Usage>
     return { signedIn: true, limit: limitOf(env.USER_DAILY_LIMIT, 60), used: count, who: userKey };
   }
   const key = await anonKey(request);
-  const used = Number((await env.COACH_USAGE?.get(key)) ?? 0) || 0;
+  const { used } = await readAnon(env, key);
   return { signedIn: false, limit: limitOf(env.ANON_DAILY_LIMIT, 15), used, who: key };
+}
+
+const ANON_TTL = 2 * 24 * 60 * 60;
+
+/** One visitor's count today. The count is also kept as metadata, so the daily totals (stats.ts) need only a list. */
+async function readAnon(env: UsageEnv, key: string): Promise<{ used: number; meta: AnonMeta }> {
+  const entry = await env.COACH_USAGE?.getWithMetadata<AnonMeta>(key);
+  return { used: Number(entry?.value ?? 0) || 0, meta: entry?.metadata ?? {} };
 }
 
 /**
@@ -115,12 +125,36 @@ export async function useMessage(request: Request, env: UsageEnv): Promise<Usage
 
   const limit = limitOf(env.ANON_DAILY_LIMIT, 15);
   const key = await anonKey(request);
-  const used = Number((await env.COACH_USAGE?.get(key)) ?? 0) || 0;
+  const { used, meta } = await readAnon(env, key);
   if (used >= limit) {
+    // Remember (once) that this visitor reached the limit, for the statistics
+    if (!meta.hit) await env.COACH_USAGE?.put(key, String(used), { expirationTtl: ANON_TTL, metadata: { n: used, hit: 1 } });
     throw new UsageError(`You've used today's ${limit} free Coach messages. Sign in for a bigger daily allowance.`, 429, "quota_anon");
   }
   // KV is eventually consistent, so this can overshoot slightly under bursts; the
   // per-minute rate limiter bounds that
-  await env.COACH_USAGE?.put(key, String(used + 1), { expirationTtl: 2 * 24 * 60 * 60 });
+  await env.COACH_USAGE?.put(key, String(used + 1), { expirationTtl: ANON_TTL, metadata: { n: used + 1 } });
   return { signedIn: false, limit, used: used + 1, who: key };
+}
+
+/**
+ * Adds the tokens of one Claude reply to the signed-in user's daily totals
+ * (for the owner's cost statistics). Best effort: a failure is only logged.
+ */
+export async function recordTokens(env: UsageEnv, token: string, tokens: TokenCounts): Promise<void> {
+  if (!env.SUPABASE_URL || !env.SUPABASE_PUBLISHABLE_KEY) return;
+  try {
+    const response = await fetch(`${env.SUPABASE_URL}/rest/v1/rpc/record_coach_tokens`, {
+      method: "POST",
+      headers: {
+        apikey: env.SUPABASE_PUBLISHABLE_KEY,
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(tokens),
+    });
+    if (!response.ok) console.error("record_coach_tokens failed:", response.status, await response.text().catch(() => ""));
+  } catch (error) {
+    console.error("record_coach_tokens failed:", error);
+  }
 }
