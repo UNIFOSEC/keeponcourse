@@ -50,7 +50,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
   function render() {
     const state = account.state;
     if (state.status === "signed-in") return renderSignedIn(state.email);
-    if (sentTo) return renderSent(sentTo);
+    if (sentTo !== null) return renderSent(sentTo);
     renderSignIn(state.status === "signed-out" ? state.error : undefined);
   }
 
@@ -111,14 +111,9 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
           class: "btn btn-ghost btn-sm account-have-code",
           attrs: { type: "button" },
           on: {
+            // Opens the code form, with any email typed so far filled in
             click: () => {
-              const value = email.value.trim();
-              if (!EMAIL.test(value)) {
-                message.textContent = "Enter the email address the code was sent to.";
-                email.focus();
-                return;
-              }
-              sentTo = value;
+              sentTo = email.value.trim();
               codeOnly = true;
               render();
             },
@@ -142,6 +137,11 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
 
   function renderSent(address: string) {
     title.textContent = codeOnly ? "Enter your code" : "Check your email";
+    // For a code from an earlier email, ask which address it was sent to
+    const emailInput = h("input", {
+      class: "input",
+      attrs: { id: "account-code-email", type: "email", autocomplete: "email", inputmode: "email", placeholder: "you@example.com", value: address },
+    });
     const code = h("input", {
       class: "input account-code",
       attrs: {
@@ -164,6 +164,12 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
         on: {
           submit: async (event) => {
             event.preventDefault();
+            const to = codeOnly ? emailInput.value.trim() : address;
+            if (!EMAIL.test(to)) {
+              message.textContent = "Enter the email address the code was sent to.";
+              emailInput.focus();
+              return;
+            }
             const value = code.value.replace(/\D/g, ""); // allow pasted spaces or dashes
             if (!CODE.test(value)) {
               message.textContent = "Enter the code from the email: 6 digits or more.";
@@ -175,7 +181,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
             submit.disabled = true;
             submit.classList.add("loading");
             try {
-              await account.verifyCode(address, value);
+              await account.verifyCode(to, value);
               // The account subscription re-renders this dialog as signed in
             } catch (err) {
               message.textContent = errorMessage(err);
@@ -188,6 +194,8 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
           },
         },
       },
+      codeOnly && h("label", { class: "field-label", attrs: { for: "account-code-email" } }, "Email"),
+      codeOnly && emailInput,
       h("label", { class: "field-label", attrs: { for: "account-code" } }, "Sign-in code"),
       code,
       h("p", { class: "muted account-code-help", attrs: { id: "account-code-help" } }, "The code works on any device, even if the link opened somewhere else."),
@@ -201,7 +209,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
         { class: "account-sent" },
         h("span", { class: "account-sent-icon" }, icon("mail", 26)),
         codeOnly
-          ? h("p", {}, "Enter the code from the sign-in email sent to ", h("strong", {}, address), ".")
+          ? h("p", {}, "Enter your email and the code from your sign-in email.")
           : h("p", {}, "We sent a sign-in link and code to ", h("strong", {}, address), "."),
         !codeOnly && h("p", { class: "muted" }, "Open the link in this browser, or type the code below. You can close this window; the app updates as soon as you're in."),
       ),
@@ -222,7 +230,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
         "Use a different email",
       ),
     );
-    requestAnimationFrame(() => code.focus());
+    requestAnimationFrame(() => (codeOnly && !address ? emailInput : code).focus());
   }
 
   function renderSignedIn(email: string) {

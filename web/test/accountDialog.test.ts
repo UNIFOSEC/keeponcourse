@@ -55,14 +55,29 @@ describe("sign-in dialog", () => {
   });
 
   it("lets someone with a code from an earlier email sign in without sending another", async () => {
-    const { account, $, button, el } = setup();
+    const { account, $, button } = setup();
+    // Straight to the code form, even before typing an email
     button("I already have a code").click();
-    expect(el.textContent).toContain("Enter the email address the code was sent to.");
+    expect($("#account-code-email")).toBeTruthy();
+    expect($("#account-code")).toBeTruthy();
 
+    $<HTMLInputElement>("#account-code").value = "123456";
+    button("Sign in with code").click();
+    await flush();
+    expect(account.verifyCode).not.toHaveBeenCalled(); // the email is still missing
+
+    $<HTMLInputElement>("#account-code-email").value = "learner@example.com";
+    button("Sign in with code").click();
+    await flush();
+    expect(account.sendLink).not.toHaveBeenCalled();
+    expect(account.verifyCode).toHaveBeenCalledWith("learner@example.com", "123456");
+  });
+
+  it("fills in an email typed before choosing to enter a code", () => {
+    const { $, button } = setup();
     $<HTMLInputElement>("#account-email").value = "learner@example.com";
     button("I already have a code").click();
-    expect(account.sendLink).not.toHaveBeenCalled();
-    expect(el.textContent).toContain("Enter the code from the sign-in email sent to learner@example.com");
+    expect($<HTMLInputElement>("#account-code-email").value).toBe("learner@example.com");
   });
 
   it("explains a wrong or malformed code without signing in", async () => {
