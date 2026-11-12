@@ -61,7 +61,7 @@ export function buildIcs(items: { course: Course; plan: StudyPlan }[], today = t
   for (const { course, plan } of items) {
     plan.sessions.forEach((session, index) => {
       const module = plan.modules[session.module];
-      if (!module || module.done || session.date < today) return;
+      if (!module || module.done || session.status || session.date < today) return;
       count++;
       lines.push(
         "BEGIN:VEVENT",

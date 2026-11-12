@@ -12,7 +12,7 @@ import { toast } from "./toast";
 type Field = keyof CourseInput;
 
 /** Slide-over panel for adding and editing a course. One instance, reused. */
-export function createCoursePanel(app: App, openPlanWizard: (course?: Course) => void) {
+export function createCoursePanel(app: App, openPlanWizard: (course?: Course) => void, openCatchUp: (course: Course) => void) {
   let editing: Course | null = null;
   let busy = false;
 
@@ -62,6 +62,10 @@ export function createCoursePanel(app: App, openPlanWizard: (course?: Course) =>
     planCourse: (course) => {
       dialog.close();
       openPlanWizard(course);
+    },
+    catchUp: (course) => {
+      dialog.close();
+      openCatchUp(course);
     },
   });
 

@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it } from "vitest";
 import type { Account } from "../src/account";
 import { App } from "../src/app";
 import { runTool, undoAction } from "../src/coach/tools";
+import { schedule, type StudyPlan } from "../src/plan";
+import { addDays, todayISO } from "../src/dates";
 
 // Coach's tool calls are model output, so they're untrusted input: these tests
 // check they go through the same validation as the course form.
@@ -68,5 +70,40 @@ describe("Coach tools", () => {
     expect(app.courses.some((c) => c.id === target.id)).toBe(false);
     await undoAction(app, outcome.action!);
     expect(app.courses.some((c) => c.name === target.name)).toBe(true);
+  });
+
+  it("reschedules a study plan that fell behind, and undo restores it", async () => {
+    // Three 1-hour modules on every weekday, started two weeks ago, nothing checked in
+    const start = addDays(todayISO(), -14);
+    const modules = [1, 2, 3].map((n) => ({ title: `Module ${n}`, summary: "", hours: 1, done: false }));
+    const days = [0, 1, 2, 3, 4, 5, 6];
+    const plan: StudyPlan = { version: 1, days, session_minutes: 60, start_time: "19:00", start_date: start, modules, sessions: schedule(modules, { startDate: start, days, sessionMinutes: 60 }) };
+    const course = await app.create({ name: "Behind", description: "d", target_date: addDays(todayISO(), -1), status: "In Progress", plan });
+
+    const outcome = await runTool(app, call("reschedule_plan", { id: course.id, move_target_date: true }));
+    const body = result(outcome);
+    expect(body.ok).toBe(true);
+    expect(body.sessions_left).toBe(3);
+    expect(body.planned_finish).toBe(addDays(todayISO(), 2));
+    const after = app.courses.find((c) => c.id === course.id)!;
+    expect(after.target_date).toBe(addDays(todayISO(), 2));
+    expect(after.plan!.sessions.filter((s) => s.status === "skipped")).toHaveLength(3);
+
+    await undoAction(app, outcome.action!);
+    const restored = app.courses.find((c) => c.id === course.id)!;
+    expect(restored.target_date).toBe(course.target_date);
+    expect(restored.plan!.sessions.some((s) => s.status)).toBe(false);
+  });
+
+  it("refuses to reschedule a course without a plan, or with bad days or lengths", async () => {
+    const plain = app.courses.find((c) => !c.plan)!;
+    expect((await runTool(app, call("reschedule_plan", { id: plain.id }))).result.is_error).toBe(true);
+    const start = todayISO();
+    const modules = [{ title: "Only", summary: "", hours: 1, done: false }];
+    const plan: StudyPlan = { version: 1, days: [1], session_minutes: 60, start_time: "19:00", start_date: start, modules, sessions: schedule(modules, { startDate: start, days: [1], sessionMinutes: 60 }) };
+    const course = await app.create({ name: "Planned", description: "d", target_date: addDays(start, 30), status: "Not Started", plan });
+    expect((await runTool(app, call("reschedule_plan", { id: course.id, days: [9] }))).result.is_error).toBe(true);
+    expect((await runTool(app, call("reschedule_plan", { id: course.id, days: [] }))).result.is_error).toBe(true);
+    expect((await runTool(app, call("reschedule_plan", { id: course.id, session_minutes: 50 }))).result.is_error).toBe(true);
   });
 });

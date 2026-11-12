@@ -65,6 +65,16 @@ describe("buildFeed", () => {
     expect(buildFeed([row()], NOW).replace(/\r\n /g, "")).toContain("SUMMARY:Study: Spanish\\, A2 · Past tense");
   });
 
+  it("leaves out skipped sessions but keeps done ones", () => {
+    const base = row();
+    const sessions = [
+      { date: "2026-10-26", module: 0, minutes: 60, status: "done" },
+      { date: "2026-11-02", module: 0, minutes: 60, status: "skipped" },
+    ];
+    const ics = buildFeed([row({ plan: { ...base.plan, sessions } })], NOW);
+    expect(starts(ics)).toEqual(["20261026T230000Z"]);
+  });
+
   it("survives malformed rows", () => {
     expect(() => buildFeed([{ course_id: 1, course_name: "X", timezone: "UTC", plan: null as never }], NOW)).not.toThrow();
     expect(events(buildFeed([], NOW))).toBe(0);

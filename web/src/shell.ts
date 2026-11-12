@@ -8,6 +8,7 @@ import { createCoursePanel } from "./ui/coursePanel";
 import { h, isTypingTarget } from "./ui/dom";
 import { icon, logo, type IconName } from "./ui/icons";
 import { createImportDialog } from "./ui/importDialog";
+import { createCatchUpDialog } from "./ui/catchUpDialog";
 import { createPlanWizard } from "./ui/planWizard";
 import { createSettingsDialog } from "./ui/settingsDialog";
 import { themeToggle } from "./ui/theme";
@@ -50,7 +51,8 @@ const VIEWS: Record<Route, (ctx: Ctx) => View> = {
 export function mountShell(root: HTMLElement, app: App): void {
   const coach = new CoachSession(app);
   const planWizard = createPlanWizard(app, coach);
-  const panel = createCoursePanel(app, (course) => planWizard.open(course));
+  const catchUpDialog = createCatchUpDialog(app);
+  const panel = createCoursePanel(app, (course) => planWizard.open(course), (course) => catchUpDialog.open(course));
   const settings = createSettingsDialog(app);
   const accountDialog = createAccountDialog(app, app.account, () => coach.reset());
   const importDialog = createImportDialog(app);
@@ -61,6 +63,7 @@ export function mountShell(root: HTMLElement, app: App): void {
     openSettings: () => settings.open(),
     openAccount: () => accountDialog.open(),
     openPlanWizard: (course) => planWizard.open(course),
+    openCatchUp: (course) => catchUpDialog.open(course),
   };
 
   const main = h("main", { class: "main", attrs: { id: "main", tabindex: -1 } });
@@ -100,7 +103,7 @@ export function mountShell(root: HTMLElement, app: App): void {
 
   const skipLink = h("button", { class: "skip-link", attrs: { type: "button" }, on: { click: () => main.focus() } }, "Skip to content");
 
-  root.replaceChildren(skipLink, h("div", { class: "app" }, sidebar, main), panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el);
+  root.replaceChildren(skipLink, h("div", { class: "app" }, sidebar, main), panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el);
   initToasts(document.body);
 
   function renderSource() {

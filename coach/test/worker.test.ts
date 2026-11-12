@@ -122,7 +122,7 @@ describe("POST /chat", () => {
     expect(sent.headers.credential).toBe("(set)");
     expect(sent.body.model).toBe("claude-haiku-5-5");
     expect(sent.body.output_config).toEqual({ effort: "low" });
-    expect(sent.body.tools.map((t: { name: string }) => t.name).sort()).toEqual(["add_course", "remove_course", "update_course"]);
+    expect(sent.body.tools.map((t: { name: string }) => t.name).sort()).toEqual(["add_course", "remove_course", "reschedule_plan", "update_course"]);
     expect(sent.body.system).toBeTruthy();
     expect(sent.body.fallbacks).toBeUndefined(); // Haiku has no fallback models
   });

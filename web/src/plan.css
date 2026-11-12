@@ -753,3 +753,194 @@
   color: var(--ip);
   font-weight: 600;
 }
+
+/* --------------------------------------------- session check-ins and catch-up */
+
+/* A calendar row: the session (opens the course) plus its check-in controls */
+.cal-entry-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+}
+.cal-entry-row > .cal-entry {
+  flex: 1 1 260px;
+  min-width: 0;
+}
+.cal-entry.is-skipped .cal-entry-main strong {
+  text-decoration: line-through;
+  color: var(--text-2);
+}
+.cal-entry.is-skipped {
+  opacity: 0.6;
+}
+
+.checkin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+.checkin-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.checkin-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.checkin-btn.checkin-done {
+  border-color: var(--done);
+  color: var(--done);
+}
+.checkin-btn.checkin-done:hover {
+  background: var(--done-soft);
+}
+.checkin-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.checkin-done .checkin-status {
+  color: var(--done);
+}
+.checkin-skipped .checkin-status {
+  color: var(--text-2);
+}
+.checkin .checkin-btn:only-child,
+.checkin-status + .checkin-btn {
+  min-height: 28px;
+  padding: 0 10px;
+  border-color: transparent;
+}
+
+/* Course panel: "You're behind" */
+.plan-behind {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--ip-soft);
+  color: var(--ip);
+  font-size: 13.5px;
+  font-weight: 500;
+}
+.plan-behind > span {
+  flex: 1 1 auto;
+}
+.plan-next {
+  flex-wrap: wrap;
+}
+
+/* Overview: Today's study */
+.study-today {
+  display: grid;
+  gap: 4px;
+}
+.study-today .card-head {
+  margin-bottom: 8px;
+}
+.study-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.study-behind {
+  margin-top: 8px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+.study-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px 12px;
+}
+.study-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  flex: 1 1 220px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+button.study-main {
+  cursor: pointer;
+}
+button.study-main:hover strong {
+  color: var(--accent-text);
+}
+.study-main .muted,
+.study-missed {
+  font-size: 13px;
+}
+.study-missed {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--ip);
+  font-weight: 500;
+}
+
+/* Catch-up dialog */
+.catchup {
+  display: grid;
+  gap: 16px;
+}
+.catchup-summary {
+  display: grid;
+  gap: 8px;
+  padding: 12px 14px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+.catchup-summary p {
+  margin: 0;
+}
+.catchup-ok,
+.catchup-late p {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 13.5px;
+}
+.catchup-ok {
+  color: var(--done);
+}
+.catchup-late p {
+  color: var(--ip);
+}
+.catchup-late {
+  display: grid;
+  gap: 8px;
+}
+.catchup-move {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+}

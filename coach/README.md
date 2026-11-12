@@ -14,7 +14,7 @@ Browser (web/) ──POST /chat──▶ Coach Worker ──▶ Claude API
 
 ## How tool calls work
 
-Claude has three tools: `add_course`, `update_course` and `remove_course`. The **browser** carries them out, not this Worker, because the courses live in the browser (demo data) or in the local Express API.
+Claude has four tools: `add_course`, `update_course`, `remove_course`, and `reschedule_plan`, which catches a study plan up from today after missed sessions (optionally with different study days or session length, and moving the target date only if the user agreed). The **browser** carries them out, not this Worker, because the courses live in the browser (demo data) or in the local Express API.
 
 1. The browser sends the conversation. Each user turn starts with a `<course_data>` block holding today's date and the course list as JSON.
 2. If Claude decides to change something, the reply ends with `stop_reason: "tool_use"`.

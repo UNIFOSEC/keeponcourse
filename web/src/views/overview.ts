@@ -1,4 +1,6 @@
-import { dueInfo, formatLongToday, greeting, isOverdue } from "../dates";
+import { dueInfo, formatLongToday, formatTime, greeting, isOverdue, todayISO } from "../dates";
+import { missedSessions } from "../plan";
+import { checkInControls } from "../ui/checkIn";
 import { readString, writeString } from "../data/storage";
 import { STATUSES, STATUS_KEY, type Course } from "../types";
 import {
@@ -58,6 +60,7 @@ export function createOverview(ctx: Ctx): View {
         kpi("Completed", count("Completed"), "checkCircle", "done"),
         kpi("Overdue", overdue, "alert", overdue > 0 ? "danger" : "neutral", overdue > 0 ? "Past their target date" : "You're on track"),
       ),
+      studyCard(courses),
       h("div", { class: "overview-grid" }, progressCard(courses), deadlinesCard(courses)),
     ];
   }
@@ -137,6 +140,64 @@ export function createOverview(ctx: Ctx): View {
           ),
         ),
       ),
+    );
+  }
+
+  /** Today's study sessions (with check-in) and plans that have fallen behind. Hidden when there's neither. */
+  function studyCard(courses: Course[]): HTMLElement | null {
+    const today = todayISO();
+    const todays = courses.flatMap((course) =>
+      (course.plan?.sessions ?? [])
+        .filter((s) => s.date === today && !course.plan!.modules[s.module]?.done)
+        .map((session) => ({ course, plan: course.plan!, session })),
+    );
+    const behind = courses
+      .filter((c) => c.plan && c.status !== "Completed")
+      .map((course) => ({ course, missed: missedSessions(course.plan!, today).length }))
+      .filter((b) => b.missed > 0);
+    if (!todays.length && !behind.length) return null;
+
+    return h(
+      "section",
+      { class: "card study-today", attrs: { "aria-labelledby": "study-today-title" } },
+      h("header", { class: "card-head" }, h("h2", { attrs: { id: "study-today-title" } }, "Today's study"), h("a", { class: "link", attrs: { href: "#/calendar" } }, "Calendar")),
+      todays.length > 0 &&
+        h(
+          "ul",
+          { class: "study-list" },
+          todays.map(({ course, plan, session }) =>
+            h(
+              "li",
+              { class: "study-item" },
+              h(
+                "button",
+                { class: "study-main", attrs: { type: "button" }, on: { click: () => ctx.openCourse(course) } },
+                h("strong", {}, plan.modules[session.module].title),
+                h("span", { class: "muted" }, `${course.name} · ${formatTime(plan.start_time)} · ${session.minutes} min`),
+              ),
+              checkInControls(ctx.app, course, plan, session, today),
+            ),
+          ),
+        ),
+      !todays.length && h("p", { class: "muted" }, "No study sessions today."),
+      behind.length > 0 &&
+        h(
+          "ul",
+          { class: "study-list study-behind" },
+          behind.map(({ course, missed }) =>
+            h(
+              "li",
+              { class: "study-item" },
+              h(
+                "span",
+                { class: "study-main" },
+                h("strong", {}, course.name),
+                h("span", { class: "study-missed" }, icon("alert", 14), `${missed} missed session${missed === 1 ? "" : "s"}`),
+              ),
+              h("button", { class: "btn btn-secondary btn-sm", attrs: { type: "button" }, on: { click: () => ctx.openCatchUp(course) } }, icon("refresh", 15), h("span", {}, "Catch up")),
+            ),
+          ),
+        ),
     );
   }
 

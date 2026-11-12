@@ -1,5 +1,6 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { errorMessage, type App } from "../app";
+import { catchUp, finishDate, SESSION_LENGTHS } from "../plan";
 import { isStatus, type Course, type CourseInput } from "../types";
 import { hasErrors, validateCourse } from "../validation";
 
@@ -7,7 +8,8 @@ import { hasErrors, validateCourse } from "../validation";
 export type CoachAction =
   | { kind: "added"; course: Course }
   | { kind: "updated"; before: Course; after: Course }
-  | { kind: "removed"; course: Course };
+  | { kind: "removed"; course: Course }
+  | { kind: "replanned"; before: Course; after: Course };
 
 export interface ToolOutcome {
   result: Anthropic.Beta.BetaToolResultBlockParam;
@@ -28,8 +30,8 @@ export async function runTool(app: App, block: Anthropic.Beta.BetaToolUseBlock):
   const fail = (error: string): ToolOutcome => ({
     result: { type: "tool_result", tool_use_id: block.id, content: JSON.stringify({ ok: false, error }), is_error: true },
   });
-  const ok = (course: Course, action: CoachAction): ToolOutcome => ({
-    result: { type: "tool_result", tool_use_id: block.id, content: JSON.stringify({ ok: true, course: brief(course) }) },
+  const ok = (course: Course, action: CoachAction, extra: Record<string, unknown> = {}): ToolOutcome => ({
+    result: { type: "tool_result", tool_use_id: block.id, content: JSON.stringify({ ok: true, course: brief(course), ...extra }) },
     action,
   });
 
@@ -70,6 +72,34 @@ export async function runTool(app: App, block: Anthropic.Beta.BetaToolUseBlock):
         return ok(after, { kind: "updated", before, after });
       }
 
+      case "reschedule_plan": {
+        const before = find(input.id);
+        if (!before) return fail(`There is no course with ID ${String(input.id)}.`);
+        if (!before.plan) return fail("That course has no study plan. The user can create one from the course or by importing a syllabus.");
+        let days = before.plan.days;
+        if (input.days !== undefined) {
+          if (!Array.isArray(input.days) || !input.days.every((d) => Number.isInteger(d) && d >= 0 && d <= 6)) return fail("days must be weekday numbers from 0 (Sunday) to 6 (Saturday).");
+          days = [...new Set(input.days as number[])].sort();
+          if (!days.length) return fail("Pick at least one study day.");
+        }
+        let sessionMinutes = before.plan.session_minutes;
+        if (input.session_minutes !== undefined) {
+          if (!(SESSION_LENGTHS as readonly number[]).includes(input.session_minutes as number)) return fail(`session_minutes must be one of ${SESSION_LENGTHS.join(", ")}.`);
+          sessionMinutes = input.session_minutes as number;
+        }
+        const plan = catchUp(before.plan, { days, sessionMinutes });
+        const left = plan.sessions.filter((s) => !s.status).length;
+        if (left === 0) return fail("There's nothing left to schedule: every module is done.");
+        const end = finishDate(plan)!;
+        const move = input.move_target_date === true && end > before.target_date;
+        const after = await app.update(before.id, { plan, ...(move ? { target_date: end } : {}) });
+        return ok(
+          after,
+          { kind: "replanned", before, after },
+          { sessions_left: left, planned_finish: end, target_date: after.target_date, finishes_after_target: end > after.target_date },
+        );
+      }
+
       case "remove_course": {
         const course = find(input.id);
         if (!course) return fail(`There is no course with ID ${String(input.id)}.`);
@@ -99,6 +129,9 @@ export async function undoAction(app: App, action: CoachAction): Promise<void> {
     }
     case "removed":
       await app.restore(action.course);
+      return;
+    case "replanned":
+      await app.update(action.before.id, { plan: action.before.plan ?? null, target_date: action.before.target_date });
       return;
   }
 }

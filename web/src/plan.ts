@@ -15,10 +15,14 @@ export interface PlanModule {
   done: boolean;
 }
 
+/** A check-in: the learner did the session, or chose to skip it. No status = not checked in yet. */
+export type SessionStatus = "done" | "skipped";
+
 export interface PlanSession {
   date: string; // YYYY-MM-DD
   minutes: number;
   module: number; // index into modules
+  status?: SessionStatus;
 }
 
 export interface StudyPlan {
@@ -47,14 +51,20 @@ const weekday = (iso: string) => {
 };
 
 /** Lays modules out as sessions, in order, on the chosen weekdays. */
-export function schedule(modules: Pick<PlanModule, "hours">[], { startDate, days, sessionMinutes }: ScheduleOptions): PlanSession[] {
+export function schedule(modules: Pick<PlanModule, "hours">[], options: ScheduleOptions): PlanSession[] {
+  const counts = modules.map((m) => Math.max(1, Math.ceil((m.hours * 60) / options.sessionMinutes)));
+  return layOut(counts, options);
+}
+
+/** Places counts[i] sessions of module i, modules in order, skipping busy dates. */
+function layOut(counts: number[], { startDate, days, sessionMinutes }: ScheduleOptions, limit: number = PLAN_LIMITS.sessions, busy = new Set<string>()): PlanSession[] {
   const sessions: PlanSession[] = [];
   if (days.length === 0 || sessionMinutes <= 0) return sessions;
   let date = startDate;
-  for (let index = 0; index < modules.length; index++) {
-    let remaining = Math.max(1, Math.ceil((modules[index].hours * 60) / sessionMinutes));
-    while (remaining > 0 && sessions.length < PLAN_LIMITS.sessions) {
-      if (days.includes(weekday(date))) {
+  for (let index = 0; index < counts.length; index++) {
+    let remaining = counts[index];
+    while (remaining > 0 && sessions.length < limit) {
+      if (days.includes(weekday(date)) && !busy.has(date)) {
         sessions.push({ date, minutes: sessionMinutes, module: index });
         remaining--;
       }
@@ -64,8 +74,11 @@ export function schedule(modules: Pick<PlanModule, "hours">[], { startDate, days
   return sessions;
 }
 
+/** The date of the last session still to do (skipped sessions don't count). */
 export function finishDate(plan: Pick<StudyPlan, "sessions">): string | null {
-  return plan.sessions.length ? plan.sessions[plan.sessions.length - 1].date : null;
+  let last: string | null = null;
+  for (const s of plan.sessions) if (s.status !== "skipped" && (last === null || s.date > last)) last = s.date;
+  return last;
 }
 
 export function totalHours(modules: Pick<PlanModule, "hours">[]): number {
@@ -78,9 +91,78 @@ export function progress(plan: StudyPlan): { done: number; total: number; pct: n
   return { done, total, pct: total ? Math.round((done / total) * 100) : 0 };
 }
 
-/** The next session that's today or later and belongs to an unfinished module. */
+/** The next session that's today or later, not checked in yet, and belongs to an unfinished module. */
 export function nextSession(plan: StudyPlan, today = todayISO()): PlanSession | null {
-  return plan.sessions.find((s) => s.date >= today && !plan.modules[s.module]?.done) ?? null;
+  return plan.sessions.find((s) => s.date >= today && !s.status && !plan.modules[s.module]?.done) ?? null;
+}
+
+/** Sessions before today that were never checked in, for modules that aren't done: what "behind" means. */
+export function missedSessions(plan: StudyPlan, today = todayISO()): PlanSession[] {
+  return plan.sessions.filter((s) => s.date < today && !s.status && !plan.modules[s.module]?.done);
+}
+
+/** Done sessions out of all sessions that aren't skipped. */
+export function sessionProgress(plan: StudyPlan): { done: number; total: number } {
+  const counted = plan.sessions.filter((s) => s.status !== "skipped");
+  return { done: counted.filter((s) => s.status === "done").length, total: counted.length };
+}
+
+/**
+ * Checks a session in (done or skipped) or clears its check-in. Marking the
+ * last open session of a module done also marks the module done.
+ */
+export function setSessionStatus(plan: StudyPlan, index: number, status: SessionStatus | null): { plan: StudyPlan; finishedModule: number | null } {
+  const target = plan.sessions[index];
+  if (!target) return { plan, finishedModule: null };
+  const sessions: PlanSession[] = plan.sessions.map((s, i) => {
+    if (i !== index) return s;
+    const { status: _old, ...rest } = s;
+    return status ? { ...rest, status } : rest;
+  });
+  let finishedModule: number | null = null;
+  let modules = plan.modules;
+  const module = plan.modules[target.module];
+  if (status === "done" && module && !module.done) {
+    const open = sessions.some((s) => s.module === target.module && s.status !== "done" && s.status !== "skipped");
+    if (!open) {
+      finishedModule = target.module;
+      modules = plan.modules.map((m, i) => (i === target.module ? { ...m, done: true } : m));
+    }
+  }
+  return { plan: { ...plan, sessions, modules }, finishedModule };
+}
+
+export interface CatchUpOptions {
+  today?: string;
+  days?: number[];
+  sessionMinutes?: number;
+}
+
+/**
+ * Reschedules the work that's left so the plan starts again from today.
+ * Done sessions stay where they are; past sessions that were never checked in
+ * stay on record as skipped. Each unfinished module gets the time it still
+ * needs (its hours minus the time already done), in the new session length,
+ * on the chosen days, from today on.
+ */
+export function catchUp(plan: StudyPlan, { today = todayISO(), days = plan.days, sessionMinutes = plan.session_minutes }: CatchUpOptions = {}): StudyPlan {
+  const kept: PlanSession[] = [];
+  for (const s of plan.sessions) {
+    if (s.status === "done") kept.push(s);
+    else if (s.date < today) kept.push(s.status ? s : { ...s, status: "skipped" });
+  }
+  const doneMinutes = new Map<number, number>();
+  for (const s of kept) if (s.status === "done") doneMinutes.set(s.module, (doneMinutes.get(s.module) ?? 0) + s.minutes);
+
+  const counts = plan.modules.map((m, i) => {
+    if (m.done) return 0;
+    const left = m.hours * 60 - (doneMinutes.get(i) ?? 0);
+    return left > 0 ? Math.ceil(left / sessionMinutes) : 0;
+  });
+  const busy = new Set(kept.filter((s) => s.date >= today).map((s) => s.date));
+  const fresh = layOut(counts, { startDate: today, days, sessionMinutes }, Math.max(0, PLAN_LIMITS.sessions - kept.length), busy);
+  const sessions = [...kept, ...fresh].sort((a, b) => a.date.localeCompare(b.date) || a.module - b.module);
+  return { ...plan, days: [...days].sort(), session_minutes: sessionMinutes, sessions };
 }
 
 /** Days the plan finishes before (+) or after (−) the target date. */
@@ -121,7 +203,13 @@ export function sanitizePlan(value: unknown): StudyPlan | null {
     .filter(isObject)
     .slice(0, PLAN_LIMITS.sessions)
     .filter((s) => isValidDate(s.date) && Number.isInteger(s.module) && (s.module as number) >= 0 && (s.module as number) < modules.length)
-    .map((s) => ({ date: s.date as string, minutes: minutes, module: s.module as number }));
+    .map((s) => {
+      // Sessions keep their own length (it can differ after a catch-up changed the session length)
+      const own = Number(s.minutes);
+      const session: PlanSession = { date: s.date as string, minutes: Number.isInteger(own) && own >= 15 && own <= 240 ? own : minutes, module: s.module as number };
+      if (s.status === "done" || s.status === "skipped") session.status = s.status;
+      return session;
+    });
 
   return { version: 1, days, session_minutes: minutes, start_time: value.start_time, start_date: value.start_date, modules, sessions };
 }
@@ -150,7 +238,7 @@ export function countConflicts(sessions: PlanSession[], startTime: string, other
     const end = start + session.minutes;
     const clash = others.find(({ plan }) => {
       const otherStart = toMinutes(plan.start_time);
-      return plan.sessions.some((s) => s.date === session.date && !plan.modules[s.module]?.done && otherStart < end && start < otherStart + s.minutes);
+      return plan.sessions.some((s) => s.date === session.date && !s.status && !plan.modules[s.module]?.done && otherStart < end && start < otherStart + s.minutes);
     });
     if (clash) {
       count++;

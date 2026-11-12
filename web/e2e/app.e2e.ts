@@ -119,3 +119,42 @@ test("the private Stats page asks visitors to sign in and shows no numbers", asy
   // Not linked from the menu
   await expect(page.locator('nav a[href="#/stats"]')).toHaveCount(0);
 });
+
+test("check in a study session and catch up after missed ones", async ({ page }) => {
+  // A plan that started two weeks ago on every day, with nothing checked in
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    const iso = (offset: number) => {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    };
+    const modules = ["Warm-up", "Scales", "Songs"].map((title) => ({ title, summary: "", hours: 5, done: false }));
+    const sessions = Array.from({ length: 15 }, (_, i) => ({ date: iso(i - 14), minutes: 60, module: Math.floor(i / 5) }));
+    const course = {
+      id: 1000,
+      name: "Piano basics",
+      description: "Learn to play simple songs",
+      target_date: iso(30),
+      status: "In Progress",
+      created_at: "2026-01-01 00:00:00",
+      plan: { version: 1, days: [0, 1, 2, 3, 4, 5, 6], session_minutes: 60, start_time: "19:00", start_date: iso(-14), modules, sessions },
+    };
+    localStorage.setItem("cch.demo.courses.v2", JSON.stringify([course]));
+  });
+  await page.goto("./");
+
+  const today = page.getByRole("region", { name: "Today's study" });
+  await expect(today.getByText("14 missed sessions")).toBeVisible();
+  await today.getByRole("button", { name: /Mark "Songs" session done/ }).click();
+  await expect(page.getByText("Session done. Nice work!")).toBeVisible();
+
+  await today.getByRole("button", { name: "Catch up" }).click();
+  const dialog = page.getByRole("dialog", { name: /Catch up on/ });
+  await expect(dialog.getByText("You missed 14 sessions")).toBeVisible();
+  await dialog.getByRole("button", { name: "Reschedule" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(page.getByText(/Plan rescheduled: finishing/)).toBeVisible();
+  await expect(today.getByText(/missed session/)).toHaveCount(0);
+});

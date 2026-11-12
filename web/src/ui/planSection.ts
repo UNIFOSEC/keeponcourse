@@ -1,8 +1,9 @@
 import { errorMessage, type App } from "../app";
 import { formatDate, formatTime } from "../dates";
 import { downloadIcs } from "../ics";
-import { nextSession, progress, type StudyPlan } from "../plan";
+import { missedSessions, nextSession, progress, sessionProgress, type StudyPlan } from "../plan";
 import type { Course } from "../types";
+import { checkInControls } from "./checkIn";
 import { cx, h, setChildren } from "./dom";
 import { icon } from "./icons";
 import { toast } from "./toast";
@@ -12,7 +13,7 @@ import { toast } from "./toast";
  * (ticking saves right away), the next session, calendar export, rebuild and
  * remove. For a new course it offers to import a syllabus instead.
  */
-export function createPlanSection(app: App, { planCourse }: { planCourse: (course?: Course) => void }) {
+export function createPlanSection(app: App, { planCourse, catchUp }: { planCourse: (course?: Course) => void; catchUp: (course: Course) => void }) {
   const el = h("section", { class: "plan-section", attrs: { "aria-labelledby": "plan-section-title" } });
   let courseId: number | null = null;
   let isNew = false;
@@ -75,6 +76,8 @@ export function createPlanSection(app: App, { planCourse }: { planCourse: (cours
     const plan = course.plan;
     const { done, total, pct } = progress(plan);
     const next = nextSession(plan);
+    const missed = missedSessions(plan).length;
+    const sessions = sessionProgress(plan);
     const bar = h("div", { class: "progress-bar", attrs: { role: "progressbar", "aria-valuemin": 0, "aria-valuemax": 100, "aria-valuenow": pct, "aria-label": "Modules completed" } });
     const fill = h("span", {});
     fill.style.width = `${pct}%`;
@@ -93,16 +96,27 @@ export function createPlanSection(app: App, { planCourse }: { planCourse: (cours
         "div",
         { class: "plan-section-top" },
         h("h3", { class: "plan-section-heading", attrs: { id: "plan-section-title" } }, "Study plan"),
-        h("span", { class: "muted" }, `${done} of ${total} modules · ${pct}%`),
+        h("span", { class: "muted" }, `${done} of ${total} modules · ${sessions.done} of ${sessions.total} sessions`),
       ),
       bar,
+      missed > 0 &&
+        h(
+          "div",
+          { class: "plan-behind", attrs: { role: "status" } },
+          icon("alert", 16),
+          h("span", {}, `You're behind: ${missed} missed session${missed === 1 ? "" : "s"}.`),
+          h("button", { class: "btn btn-secondary btn-sm", attrs: { type: "button" }, on: { click: () => catchUp(course) } }, icon("refresh", 15), h("span", {}, "Catch up")),
+        ),
       h(
         "p",
         { class: "plan-next" },
         icon(next ? "clock" : "checkCircle", 16),
         next
           ? h("span", {}, "Next: ", h("strong", {}, `${formatDate(next.date)}, ${formatTime(plan.start_time)}`), ` · ${plan.modules[next.module].title}`)
-          : h("span", {}, done === total ? "All modules done. Nice work!" : "No more sessions scheduled. Rebuild the plan to schedule the rest."),
+          : h("span", {}, done === total ? "All modules done. Nice work!" : "No more sessions scheduled."),
+        next && checkInControls(app, course, plan, next),
+        !next && done < total && missed === 0 &&
+          h("button", { class: "btn btn-secondary btn-sm", attrs: { type: "button" }, on: { click: () => catchUp(course) } }, icon("refresh", 15), h("span", {}, "Schedule the rest")),
       ),
       h(
         "ul",

@@ -15,6 +15,8 @@ export interface Ctx {
   openAccount(): void;
   /** Import a syllabus / build a study plan, for a new course or an existing one. */
   openPlanWizard(course?: Course): void;
+  /** Reschedule the rest of a study plan from today, after missed sessions. */
+  openCatchUp(course: Course): void;
 }
 
 export interface View {

@@ -1,7 +1,7 @@
 import type Anthropic from "@anthropic-ai/sdk";
 import { errorMessage, type App } from "../app";
 import { todayISO } from "../dates";
-import { finishDate, nextSession, progress } from "../plan";
+import { finishDate, missedSessions, nextSession, progress } from "../plan";
 import { runTool, undoAction, type CoachAction } from "./tools";
 
 type MessageParam = Anthropic.Beta.BetaMessageParam;
@@ -80,6 +80,9 @@ function snapshot(app: App): string {
             next_module: plan.modules.find((m) => !m.done)?.title ?? null,
             next_session: nextSession(plan)?.date ?? null,
             planned_finish: finishDate(plan),
+            missed_sessions: missedSessions(plan).length,
+            study_days: plan.days,
+            session_minutes: plan.session_minutes,
           },
         }
       : {}),

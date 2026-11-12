@@ -8,6 +8,7 @@ import type { Course } from "../types";
 import { button, emptyState, pageHeader, type Ctx, type View } from "../ui/components";
 import { cx, h, setChildren } from "../ui/dom";
 import { icon } from "../ui/icons";
+import { checkInControls } from "../ui/checkIn";
 import { toast } from "../ui/toast";
 
 interface Entry {
@@ -180,7 +181,7 @@ export function createCalendar(ctx: Ctx): View {
               h(
                 "span",
                 {
-                  class: cx("cal-chip", `c${e.color}`, e.module.done && "is-done"),
+                  class: cx("cal-chip", `c${e.color}`, (e.module.done || e.session.status) && "is-done"),
                   attrs: { title: `${formatTime(e.course.plan!.start_time)} · ${e.course.name}: ${e.module.title}` },
                 },
                 e.course.name,
@@ -197,12 +198,13 @@ export function createCalendar(ctx: Ctx): View {
 
   function entryRow(e: Entry, showDate: boolean): HTMLElement {
     const plan = e.course.plan!;
+    const finished = e.module.done || e.session.status === "done";
     return h(
       "li",
-      {},
+      { class: "cal-entry-row" },
       h(
         "button",
-        { class: cx("cal-entry", e.module.done && "is-done"), attrs: { type: "button" }, on: { click: () => ctx.openCourse(e.course) } },
+        { class: cx("cal-entry", finished && "is-done", e.session.status === "skipped" && "is-skipped"), attrs: { type: "button" }, on: { click: () => ctx.openCourse(e.course) } },
         h("span", { class: `cal-bar c${e.color}` }),
         h(
           "span",
@@ -217,6 +219,7 @@ export function createCalendar(ctx: Ctx): View {
           h("span", { class: "muted" }, `${formatTime(plan.start_time)} · ${e.session.minutes} min`),
         ),
       ),
+      checkInControls(ctx.app, e.course, plan, e.session),
     );
   }
 
@@ -236,7 +239,7 @@ export function createCalendar(ctx: Ctx): View {
     const next = [...byDate.entries()]
       .filter(([date]) => date >= today)
       .sort(([a], [b]) => a.localeCompare(b))
-      .flatMap(([, entries]) => entries.filter((e) => !e.module.done))
+      .flatMap(([, entries]) => entries.filter((e) => !e.module.done && !e.session.status))
       .slice(0, 6);
     setChildren(
       upcoming,

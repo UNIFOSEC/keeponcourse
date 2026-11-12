@@ -3,6 +3,7 @@ import { MAX_INPUT, type Item } from "../coach/session";
 import { renderMarkdown } from "../coach/markdown";
 import type { CoachAction } from "../coach/tools";
 import { formatDate } from "../dates";
+import { finishDate } from "../plan";
 import { button, emptyState, pageHeader, type Ctx, type View } from "../ui/components";
 import { cx, h } from "../ui/dom";
 import { icon, type IconName } from "../ui/icons";
@@ -210,8 +211,9 @@ export function createCoach(ctx: Ctx): View {
       added: { icon: "plus", verb: "Added" },
       updated: { icon: "pencil", verb: "Updated" },
       removed: { icon: "trash", verb: "Removed" },
+      replanned: { icon: "refresh", verb: "Rescheduled" },
     };
-    const course = action.kind === "updated" ? action.after : action.course;
+    const course = action.kind === "updated" || action.kind === "replanned" ? action.after : action.course;
     const current = app.courses.find((c) => c.id === course.id);
 
     return h(
@@ -336,12 +338,17 @@ function avatar(): HTMLElement {
 }
 
 function actionCourseId(action: CoachAction): number {
-  return action.kind === "updated" ? action.after.id : action.course.id;
+  return action.kind === "updated" || action.kind === "replanned" ? action.after.id : action.course.id;
 }
 
 function describe(action: CoachAction): string {
   if (action.kind === "added") return `${action.course.status} · due ${formatDate(action.course.target_date)}`;
   if (action.kind === "removed") return "Removed from your list";
+  if (action.kind === "replanned") {
+    const end = action.after.plan ? finishDate(action.after.plan) : null;
+    const target = action.before.target_date !== action.after.target_date ? ` · target moved to ${formatDate(action.after.target_date)}` : "";
+    return `Study plan from today${end ? `, finishing ${formatDate(end)}` : ""}${target}`;
+  }
   const { before, after } = action;
   const changes: string[] = [];
   if (before.status !== after.status) changes.push(`${before.status} → ${after.status}`);

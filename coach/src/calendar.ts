@@ -23,7 +23,7 @@ interface FeedRow {
     start_time?: string;
     session_minutes?: number;
     modules?: { title?: string; summary?: string; done?: boolean }[];
-    sessions?: { date?: string; module?: number; minutes?: number }[];
+    sessions?: { date?: string; module?: number; minutes?: number; status?: string }[];
   };
 }
 
@@ -123,6 +123,8 @@ export function buildFeed(rows: FeedRow[], now = new Date()): string {
       const module = typeof session.module === "number" ? modules[session.module] : undefined;
       if (!module || typeof session.date !== "string" || !DATE.test(session.date) || session.date < from) return;
       if (module.done && session.date >= today) return;
+      // Skipped sessions disappear from the calendar; done ones stay as a record
+      if (session.status === "skipped") return;
       const minutes = Math.min(240, Math.max(15, Number(session.minutes ?? plan.session_minutes) || 60));
       const title = String(module.title ?? "Study session").slice(0, 80);
       const course = String(row.course_name ?? "Course").slice(0, 100);
