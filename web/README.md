@@ -65,7 +65,7 @@ The site runs on Cloudflare as a static-assets Worker (`wrangler.jsonc`), on the
 npm run deploy   # build + wrangler deploy
 ```
 
-With the repository connected in Cloudflare (Workers & Pages → keeponcourse-web → Settings → Build), every push to `main` deploys automatically. The build runs the unit tests first, so a failing test stops the deploy. To deploy only after every check passes (browser tests included), deploy from CI instead; see [Tests and CI](../README.md#tests-and-ci). The old GitHub Pages address redirects here.
+Normally you don't deploy by hand: every push to `main` deploys from GitHub Actions once all checks pass, browser tests included (see [Deploys](../README.md#deploys)). `npm run deploy` also runs the unit tests before building. The old GitHub Pages address redirects here.
 
 ## Tests
 

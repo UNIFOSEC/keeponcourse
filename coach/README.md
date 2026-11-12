@@ -75,6 +75,8 @@ Vitest covers request validation, the daily allowances (with in-memory stand-ins
 
 ## Deploy
 
+Every push to `main` deploys this Worker from GitHub Actions after all checks pass (see [Deploys](../README.md#deploys)). The API key is a Worker secret, so deploys keep it. To set things up from scratch, or deploy by hand:
+
 ```bash
 npx wrangler login
 npx wrangler secret put ANTHROPIC_API_KEY
