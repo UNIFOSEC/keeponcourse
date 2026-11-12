@@ -44,7 +44,7 @@ export function createPrivacy(_ctx: Ctx): View {
       "If you create an account",
       p("We store:"),
       list(
-        "Your email address, used only to send you sign-in links. There's no password.",
+        "Your email address, used only to send you sign-in links and codes. There's no password.",
         "Your courses and study plans (names, descriptions, dates, statuses, modules and scheduled sessions).",
         "If you turn on calendar sync: a private calendar link and your time zone.",
         "Daily counts of your Coach messages and of the AI tokens they used, so the daily allowance works and we know what Coach costs to run.",

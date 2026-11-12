@@ -20,7 +20,7 @@ It's a TypeScript app built with Vite, with no UI framework. It builds to a stat
   - It runs through the proxy in [`../coach`](../coach/README.md).
 - **Study plans:** import a syllabus (paste it or upload a PDF) and Coach breaks it into modules with hour estimates, or add modules yourself. Pick your study days, session length, time and target date; a live summary shows when you'll finish. Plans export to any calendar as an `.ics` file (one event per session, with reminders), and each course gets a module checklist and progress bar. Scheduling runs in the browser and is deterministic; Claude only proposes the modules.
 - **Calendar:** a colour-coded month view of every study session, with a day list and an Upcoming list. Signed-in users can **subscribe once** in Google Calendar, Outlook or Apple Calendar; new and updated plans then appear there automatically. The feed is a private 64-character link that can be reset at any time, and times are sent as UTC from the user's time zone (DST-correct). The plan wizard warns about sessions that overlap another plan and suggests a free time.
-- **Accounts with sync:** sign in with a one-time email link (no password) and your courses are stored in your account and synced across devices. You can export your data or delete your account any time, and a new account is offered a copy of your demo courses.
+- **Accounts with sync:** sign in with a one-time email link or code (no password; the code works on any device, the link in the browser that asked for it) and your courses are stored in your account and synced across devices. You can export your data or delete your account any time, and a new account is offered a copy of your demo courses.
 - **Signed out, two data sources switchable at runtime:**
   - **Demo data** (default): sample courses in the visitor's own browser storage. Nothing is sent anywhere, so a public demo needs no server.
   - **Local API:** the Express API from this project (`npm start` in the parent folder).
@@ -54,7 +54,7 @@ Then click **Data source** in the sidebar, choose **Local API**, and click **Tes
 
 Without these values, the app simply runs without accounts.
 
-**Sign-in emails** for keeponcourse.com are sent through Resend (custom SMTP in Supabase) from `hello@keeponcourse.com`, signed with DKIM and covered by DMARC. The branded template is in [`supabase/email-templates/magic-link.html`](../supabase/email-templates/magic-link.html); paste it into Supabase's **Magic Link** and **Confirm signup** templates.
+**Sign-in emails** for keeponcourse.com are sent through Resend (custom SMTP in Supabase) from `hello@keeponcourse.com`, signed with DKIM and covered by DMARC. The branded template is in [`supabase/email-templates/magic-link.html`](../supabase/email-templates/magic-link.html); paste it into Supabase's **Magic Link** and **Confirm signup** templates. It contains both the link (`{{ .ConfirmationURL }}`, PKCE, so it only works in the browser that asked for it) and the one-time code (`{{ .Token }}`), which the sign-in dialog accepts on any device.
 
 To use **Coach**, start its proxy too (see [coach/README.md](../coach/README.md)). In development, the app expects it at `http://localhost:8787` (`.env.development`). For the published site, set `VITE_COACH_URL` in `.env.production` to your deployed Worker URL. If it's empty, the site still works, and the Coach page explains that it isn't connected.
 

@@ -86,12 +86,12 @@ export class Account {
       const sb = await client();
       // getSession() waits for a sign-in link's code to be exchanged first
       const { data, error } = await sb.auth.getSession();
-      sb.auth.onAuthStateChange((_event, session) => this.fromSession(session));
+      this.listen(sb);
       if (error) throw error;
       if (!data.session && urlHasAuthCode()) {
         this.set({
           status: "signed-out",
-          error: linkError ?? "That sign-in link didn't work. It may have expired, or been opened in a different browser. Request a new one.",
+          error: linkError ?? "That sign-in link didn't work here. Links only work in the browser where you asked for them, and only for an hour. Enter your email and the code from the email instead, or request a new link.",
         });
       } else {
         this.fromSession(data.session);
@@ -103,11 +103,24 @@ export class Account {
     }
   }
 
-  /** Emails a one-time sign-in link. New emails get an account automatically. */
+  private listening = false;
+
+  /** Follows sign-in changes (including from other tabs), once per page. */
+  private listen(sb: SupabaseClient) {
+    if (this.listening) return;
+    this.listening = true;
+    sb.auth.onAuthStateChange((_event, session) => this.fromSession(session));
+  }
+
+  /**
+   * Emails a one-time sign-in link and code. New emails get an account
+   * automatically. The link works only in this browser (PKCE); the code
+   * works on any device.
+   */
   async sendLink(email: string): Promise<void> {
     const sb = await client();
     // Listen now, so this tab updates when the link is opened in another tab
-    sb.auth.onAuthStateChange((_event, session) => this.fromSession(session));
+    this.listen(sb);
     const { error } = await sb.auth.signInWithOtp({
       email,
       options: { emailRedirectTo: location.origin + location.pathname },
@@ -116,6 +129,18 @@ export class Account {
       if (error.status === 429) throw new Error("Too many sign-in emails. Please wait a few minutes and try again.");
       throw new Error(error.message || "Couldn't send the sign-in link. Please try again.");
     }
+  }
+
+  /** Signs in with the one-time code from the sign-in email. */
+  async verifyCode(email: string, code: string): Promise<void> {
+    const sb = await client();
+    this.listen(sb);
+    const { data, error } = await sb.auth.verifyOtp({ email, token: code, type: "email" });
+    if (error) {
+      if (error.status === 429) throw new Error("Too many attempts. Please wait a few minutes and try again.");
+      throw new Error("That code didn't work. Check that it's from the newest email and less than an hour old, or request a new one.");
+    }
+    this.fromSession(data.session);
   }
 
   /**

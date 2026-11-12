@@ -582,6 +582,31 @@
   text-align: center;
 }
 
+.account-have-code {
+  align-self: center;
+}
+
+.account-code-form {
+  margin-top: 8px;
+}
+
+.account-code {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.account-code-help {
+  font-size: 13px;
+}
+
+.account-different {
+  display: block;
+  margin: 10px auto 0;
+}
+
 .account-sent-icon {
   display: grid;
   place-items: center;
