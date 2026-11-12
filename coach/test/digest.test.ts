@@ -55,10 +55,10 @@ describe("buildDigest", () => {
   });
 
   it("recaps last week, and shows a streak of 2 weeks or more", () => {
-    expect(buildDigest(user(), { now: NOW })!.text).toContain("Last week: 1 of 2 sessions done");
-    const done = (date: string) => ({ date, module: 0, minutes: 60, status: "done" });
-    const courses = [{ name: "X", target_date: "2026-12-31", status: "In Progress", plan: { modules: [{ title: "M" }], sessions: [done("2026-10-28"), done("2026-11-03"), done("2026-11-10"), done("2026-11-12")] } }];
-    expect(lastWeekLine(courses, "2026-11-16", "2026-11-16")).toBe("Last week: 2 of 2 sessions done · 3-week streak");
+    expect(buildDigest(user(), { now: NOW })!.text).toContain("Last week: 1 of 2 sessions done · 1h studied");
+    const done = (date: string, actual_minutes?: number) => ({ date, module: 0, minutes: 60, status: "done", ...(actual_minutes ? { actual_minutes } : {}) });
+    const courses = [{ name: "X", target_date: "2026-12-31", status: "In Progress", plan: { modules: [{ title: "M" }], sessions: [done("2026-10-28"), done("2026-11-03"), done("2026-11-10", 45), done("2026-11-12", 50)] } }];
+    expect(lastWeekLine(courses, "2026-11-16", "2026-11-16")).toBe("Last week: 2 of 2 sessions done · 1h 35m studied · 3-week streak");
     expect(lastWeekLine([], "2026-11-16", "2026-11-16")).toBeNull();
   });
 

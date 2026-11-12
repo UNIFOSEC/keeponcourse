@@ -1,5 +1,5 @@
 import { dueInfo, formatLongToday, formatTime, greeting, isOverdue, todayISO } from "../dates";
-import { missedSessions, studyStreak, weekProgress } from "../plan";
+import { formatMinutes, missedSessions, studyStreak, weekProgress } from "../plan";
 import { checkInControls } from "../ui/checkIn";
 import { gettingStartedCard } from "../ui/gettingStarted";
 import { readString, writeString } from "../data/storage";
@@ -176,7 +176,7 @@ export function createOverview(ctx: Ctx): View {
           h(
             "div",
             { class: "study-week-text" },
-            h("strong", {}, `This week: ${week.done} of ${week.total} session${week.total === 1 ? "" : "s"} done`),
+            h("strong", {}, `This week: ${week.done} of ${week.total} session${week.total === 1 ? "" : "s"} done${week.minutes ? ` · ${formatMinutes(week.minutes)}` : ""}`),
             streak >= 2 && h("span", { class: "study-streak" }, icon("flag", 14), `${streak}-week streak`),
           ),
           weekBar(week.done, week.total),

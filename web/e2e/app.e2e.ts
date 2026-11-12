@@ -160,3 +160,44 @@ test("check in a study session and catch up after missed ones", async ({ page })
   await expect(page.getByText(/Plan rescheduled: finishing/)).toBeVisible();
   await expect(today.getByText(/missed session/)).toHaveCount(0);
 });
+
+test("run a focus session: the timer counts, minimizes, survives a reload, and checks the session in with the minutes", async ({ page }) => {
+  await page.clock.install();
+  // A course with a one-hour session today (the demo's plan runs Mon/Wed/Fri)
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem("seeded")) return;
+    sessionStorage.setItem("seeded", "1");
+    const d = new Date();
+    const today = new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+    const plan = { version: 1, days: [0, 1, 2, 3, 4, 5, 6], session_minutes: 60, start_time: "19:00", start_date: today, modules: [{ title: "Scales", summary: "", hours: 2, done: false }], sessions: [{ date: today, minutes: 60, module: 0 }, { date: today.slice(0, 8) + "28", minutes: 60, module: 0 }] };
+    localStorage.setItem("cch.demo.courses.v2", JSON.stringify([{ id: 1, name: "Piano", description: "d", target_date: "2099-01-01", status: "In Progress", created_at: "2026-01-01 00:00:00", plan }]));
+  });
+  await page.goto("./#/");
+  const today = page.getByRole("region", { name: "Today's study" });
+  await today.getByRole("button", { name: /Start a focus timer/ }).first().click();
+
+  const focus = page.getByRole("dialog", { name: /.+/ }).filter({ has: page.getByRole("timer") });
+  await expect(focus).toBeVisible();
+  await expect(focus.getByRole("timer")).toHaveText(/^(60:00|59:5\d)$/);
+
+  await page.clock.fastForward("25:00");
+  await expect(focus.getByRole("timer")).toHaveText(/^3[45]:\d\d$/);
+
+  // Minimize, then reload: the timer keeps going in the corner
+  await focus.getByRole("button", { name: "Minimize the timer" }).click();
+  await expect(focus).toBeHidden();
+  const pill = page.locator(".focus-pill");
+  await expect(pill).toBeVisible();
+  await page.reload();
+  await expect(pill).toBeVisible();
+  await expect(page).toHaveTitle(/^⏱ /);
+
+  await page.clock.fastForward("40:00"); // past the planned hour
+  await pill.click();
+  await expect(focus.getByRole("timer")).toHaveText(/^\+\d+:\d\d$/);
+  await focus.getByRole("button", { name: "Finish and check in" }).click();
+  await expect(page.getByText(/You studied 6\d min\./)).toBeVisible();
+  await expect(pill).toBeHidden();
+  await expect(page).not.toHaveTitle(/^⏱ /);
+  await expect(today.getByText(/This week: 1 of 1 session done · 1h \d+m/)).toBeVisible();
+});

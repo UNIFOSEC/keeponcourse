@@ -103,3 +103,14 @@ describe("catchUp", () => {
     expect(new Set(dates).size).toBe(dates.length);
   });
 });
+
+describe("timed check-ins", () => {
+  it("records the minutes studied, clamped, and clears them when the check-in is undone", () => {
+    const p = setSessionStatus(plan(), 0, "done", 52.4).plan;
+    expect(p.sessions[0]).toMatchObject({ status: "done", actual_minutes: 52 });
+    expect(setSessionStatus(plan(), 0, "done", 9999).plan.sessions[0].actual_minutes).toBe(600);
+    expect(setSessionStatus(p, 0, null).plan.sessions[0]).not.toHaveProperty("actual_minutes");
+    expect(setSessionStatus(plan(), 1, "skipped", 30).plan.sessions[1]).not.toHaveProperty("actual_minutes");
+    expect(sanitizePlan(JSON.parse(JSON.stringify(p)))?.sessions[0].actual_minutes).toBe(52);
+  });
+});

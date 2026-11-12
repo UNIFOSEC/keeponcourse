@@ -23,6 +23,8 @@ export interface PlanSession {
   minutes: number;
   module: number; // index into modules
   status?: SessionStatus;
+  /** Minutes actually studied, when the session was done with the focus timer */
+  actual_minutes?: number;
 }
 
 export interface StudyPlan {
@@ -106,20 +108,34 @@ export function weekStart(iso: string): string {
   return addDays(iso, -((weekday(iso) + 6) % 7));
 }
 
-/** This week's sessions across plans: how many are done, out of those not skipped. */
-export function weekProgress(plans: StudyPlan[], today = todayISO()): { done: number; total: number } {
+/** Minutes a done session counts for: what the focus timer measured, or else its planned length. */
+export const studiedMinutes = (s: PlanSession) => (s.status === "done" ? (s.actual_minutes ?? s.minutes) : 0);
+
+/** This week's sessions across plans: how many are done (out of those not skipped), and minutes studied. */
+export function weekProgress(plans: StudyPlan[], today = todayISO()): { done: number; total: number; minutes: number } {
   const start = weekStart(today);
   const end = addDays(start, 6);
   let done = 0;
   let total = 0;
+  let minutes = 0;
   for (const plan of plans) {
     for (const s of plan.sessions) {
       if (s.date < start || s.date > end || s.status === "skipped") continue;
       total++;
-      if (s.status === "done") done++;
+      if (s.status === "done") {
+        done++;
+        minutes += studiedMinutes(s);
+      }
     }
   }
-  return { done, total };
+  return { done, total, minutes };
+}
+
+/** "2h 45m", "50m" */
+export function formatMinutes(total: number): string {
+  const h = Math.floor(total / 60);
+  const m = Math.round(total % 60);
+  return h ? (m ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
 }
 
 /**
@@ -150,13 +166,20 @@ export function sessionProgress(plan: StudyPlan): { done: number; total: number 
  * Checks a session in (done or skipped) or clears its check-in. Marking the
  * last open session of a module done also marks the module done.
  */
-export function setSessionStatus(plan: StudyPlan, index: number, status: SessionStatus | null): { plan: StudyPlan; finishedModule: number | null } {
+export function setSessionStatus(
+  plan: StudyPlan,
+  index: number,
+  status: SessionStatus | null,
+  actualMinutes?: number,
+): { plan: StudyPlan; finishedModule: number | null } {
   const target = plan.sessions[index];
   if (!target) return { plan, finishedModule: null };
   const sessions: PlanSession[] = plan.sessions.map((s, i) => {
     if (i !== index) return s;
-    const { status: _old, ...rest } = s;
-    return status ? { ...rest, status } : rest;
+    const { status: _old, actual_minutes: _minutes, ...rest } = s;
+    if (!status) return rest;
+    const measured = status === "done" && actualMinutes !== undefined ? Math.min(600, Math.max(1, Math.round(actualMinutes))) : undefined;
+    return { ...rest, status, ...(measured !== undefined ? { actual_minutes: measured } : {}) };
   });
   let finishedModule: number | null = null;
   let modules = plan.modules;
@@ -247,6 +270,8 @@ export function sanitizePlan(value: unknown): StudyPlan | null {
       const own = Number(s.minutes);
       const session: PlanSession = { date: s.date as string, minutes: Number.isInteger(own) && own >= 15 && own <= 240 ? own : minutes, module: s.module as number };
       if (s.status === "done" || s.status === "skipped") session.status = s.status;
+      const actual = Number(s.actual_minutes);
+      if (session.status === "done" && Number.isInteger(actual) && actual >= 1 && actual <= 600) session.actual_minutes = actual;
       return session;
     });
 

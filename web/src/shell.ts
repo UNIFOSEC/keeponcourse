@@ -12,6 +12,7 @@ import { icon, logo, type IconName } from "./ui/icons";
 import { createImportDialog } from "./ui/importDialog";
 import { createCatchUpDialog } from "./ui/catchUpDialog";
 import { createFeedbackDialog } from "./ui/feedbackDialog";
+import { initFocus } from "./ui/focusTimer";
 import { createPlanWizard } from "./ui/planWizard";
 import { createSettingsDialog } from "./ui/settingsDialog";
 import { themeToggle } from "./ui/theme";
@@ -150,6 +151,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   const appEl = h("div", { class: "app" }, sidebar, main);
   root.replaceChildren(skipLink, appEl, panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el, feedbackDialog.el);
   initToasts(document.body);
+  initFocus(app);
 
   function renderSource() {
     const kind = app.store.kind;

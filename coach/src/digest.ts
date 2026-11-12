@@ -81,6 +81,8 @@ interface Session {
   module: number;
   minutes: number;
   status?: string;
+  /** Minutes measured by the focus timer */
+  actual_minutes?: number;
 }
 interface CourseWeek {
   name: string;
@@ -126,12 +128,20 @@ function allSessions(courses: DigestCourse[]): Session[] {
   return out;
 }
 
-/** "Last week: 3 of 4 sessions done · 5-week streak", or null when there's nothing to report. */
+const hoursMinutes = (total: number) => {
+  const h = Math.floor(total / 60);
+  const m = Math.round(total % 60);
+  return h ? (m ? `${h}h ${m}m` : `${h}h`) : `${m}m`;
+};
+
+/** "Last week: 3 of 4 sessions done · 2h 50m studied · 5-week streak", or null when there's nothing to report. */
 export function lastWeekLine(courses: DigestCourse[], today: string, monday: string): string | null {
   const sessions = allSessions(courses);
   const lastMonday = addDays(monday, -7);
   const lastWeek = sessions.filter((s) => s.date >= lastMonday && s.date < monday && s.status !== "skipped");
-  const done = lastWeek.filter((s) => s.status === "done").length;
+  const doneSessions = lastWeek.filter((s) => s.status === "done");
+  const done = doneSessions.length;
+  const minutes = doneSessions.reduce((n, s) => n + (Number(s.actual_minutes) || Number(s.minutes) || 0), 0);
 
   // Weeks in a row with a done session, back from last week (this week counts once it has one)
   const weeks = new Set(sessions.filter((s) => s.status === "done" && s.date <= today).map((s) => addDays(s.date, -((new Date(isoToUtc(s.date)).getUTCDay() + 6) % 7))));
@@ -140,6 +150,7 @@ export function lastWeekLine(courses: DigestCourse[], today: string, monday: str
 
   const parts: string[] = [];
   if (lastWeek.length) parts.push(`Last week: ${done} of ${lastWeek.length} session${lastWeek.length === 1 ? "" : "s"} done`);
+  if (minutes > 0) parts.push(`${hoursMinutes(minutes)} studied`);
   if (streak >= 2) parts.push(`${streak}-week streak`);
   return parts.length ? parts.join(" · ") : null;
 }

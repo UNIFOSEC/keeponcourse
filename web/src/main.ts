@@ -6,6 +6,7 @@ import "./legal.css";
 import "./stats.css";
 import "./landing.css";
 import "./feedback.css";
+import "./focus.css";
 import { Account } from "./account";
 import { App } from "./app";
 import { initInstall } from "./install";

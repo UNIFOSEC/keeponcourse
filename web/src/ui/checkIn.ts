@@ -3,6 +3,7 @@ import { todayISO } from "../dates";
 import { setSessionStatus, type PlanSession, type SessionStatus, type StudyPlan } from "../plan";
 import type { Course } from "../types";
 import { cx, h } from "./dom";
+import { startFocus } from "./focusTimer";
 import { icon } from "./icons";
 import { toast } from "./toast";
 
@@ -11,18 +12,19 @@ import { toast } from "./toast";
  * course panel and the Overview. Every check-in saves right away and can be
  * undone from the toast.
  */
-export async function checkIn(app: App, course: Course, index: number, status: SessionStatus | null): Promise<void> {
+export async function checkIn(app: App, course: Course, index: number, status: SessionStatus | null, actualMinutes?: number): Promise<void> {
   const before = course.plan;
   if (!before) return;
-  const { plan, finishedModule } = setSessionStatus(before, index, status);
+  const { plan, finishedModule } = setSessionStatus(before, index, status, actualMinutes);
+  const studied = actualMinutes !== undefined ? ` You studied ${plan.sessions[index]?.actual_minutes ?? Math.round(actualMinutes)} min.` : "";
   const undo = { label: "Undo", run: () => void app.update(course.id, { plan: before }).catch((e) => toast(errorMessage(e), { tone: "error" })) };
   try {
     await app.update(course.id, { plan });
     if (finishedModule !== null) {
       const allDone = plan.modules.every((m) => m.done);
-      toast(allDone ? `Every module of "${course.name}" is done!` : `Module done: ${plan.modules[finishedModule].title}`, { tone: "success", action: undo });
+      toast((allDone ? `Every module of "${course.name}" is done!` : `Module done: ${plan.modules[finishedModule].title}.`) + studied, { tone: "success", action: undo });
     } else if (status === "done") {
-      toast("Session done. Nice work!", { tone: "success", action: undo });
+      toast(`Session done. Nice work!${studied}`, { tone: "success", action: undo });
     } else if (status === "skipped") {
       toast("Session skipped. Catch up any time from the plan.", { action: undo });
     }
@@ -56,6 +58,12 @@ export function checkInControls(app: App, course: Course, plan: StudyPlan, sessi
   return h(
     "span",
     { class: "checkin" },
+    h(
+      "button",
+      { class: "checkin-btn checkin-start", attrs: { type: "button", "aria-label": `Start a focus timer for "${title}"` }, on: { click: () => startFocus(course, session) } },
+      icon("play", 14),
+      "Start",
+    ),
     h(
       "button",
       { class: "checkin-btn checkin-done", attrs: { type: "button", "aria-label": `Mark "${title}" session done` }, on: { click: () => void checkIn(app, course, index, "done") } },

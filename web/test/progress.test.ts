@@ -27,11 +27,11 @@ describe("weekProgress", () => {
   it("counts this week's sessions across plans, leaving out skipped ones", () => {
     const a = plan([s("2026-11-09", "done"), s("2026-11-11", "skipped"), s("2026-11-13"), s("2026-11-16")]);
     const b = plan([s("2026-11-10", "done"), s("2026-11-15"), s("2026-11-08", "done")]);
-    expect(weekProgress([a, b], TODAY)).toEqual({ done: 2, total: 4 });
+    expect(weekProgress([a, b], TODAY)).toEqual({ done: 2, total: 4, minutes: 120 });
   });
 
   it("is empty with no sessions this week", () => {
-    expect(weekProgress([plan([s("2026-11-02", "done")])], TODAY)).toEqual({ done: 0, total: 0 });
+    expect(weekProgress([plan([s("2026-11-02", "done")])], TODAY)).toEqual({ done: 0, total: 0, minutes: 0 });
   });
 });
 
@@ -53,5 +53,17 @@ describe("studyStreak", () => {
 
   it("combines plans", () => {
     expect(studyStreak([plan([s("2026-11-03", "done")]), plan([s("2026-10-29", "done")])], TODAY)).toBe(2);
+  });
+});
+
+describe("studied minutes", () => {
+  it("uses the focus timer's minutes when there are some, else the planned length", () => {
+    const timed = { ...s("2026-11-10", "done"), actual_minutes: 47 };
+    expect(weekProgress([plan([timed, s("2026-11-11", "done"), s("2026-11-12")])], TODAY).minutes).toBe(107);
+  });
+
+  it("formats hours and minutes", async () => {
+    const { formatMinutes } = await import("../src/plan");
+    expect([formatMinutes(50), formatMinutes(60), formatMinutes(165)]).toEqual(["50m", "1h", "2h 45m"]);
   });
 });
