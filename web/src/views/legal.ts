@@ -7,7 +7,7 @@ import { h, type Child } from "../ui/dom";
  * data handling changes, and update EFFECTIVE when you do.
  */
 
-const EFFECTIVE = "November 11, 2026";
+const EFFECTIVE = "November 12, 2026";
 const CONTACT_URL = "https://unifosec.github.io/#contact";
 /** Cookie-free visitor counts, only when a Cloudflare Web Analytics token is configured (see vite.config.ts) */
 const WEB_ANALYTICS = Boolean((import.meta.env.VITE_CF_ANALYTICS_TOKEN ?? "").trim());

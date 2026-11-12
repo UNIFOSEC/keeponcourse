@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test } from "./fixtures";
 
 /** The installed-app basics: a valid manifest with icons, a service worker, and opening offline. */
 test.use({ serviceWorkers: "allow" });
