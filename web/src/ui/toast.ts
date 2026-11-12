@@ -6,6 +6,8 @@ type Tone = "success" | "error" | "info";
 interface ToastOptions {
   tone?: Tone;
   action?: { label: string; run: () => void };
+  /** Stays until dismissed or acted on (e.g. "a new version is ready") */
+  sticky?: boolean;
 }
 
 let region: HTMLElement | null = null;
@@ -15,7 +17,7 @@ export function initToasts(parent: HTMLElement): void {
   parent.appendChild(region);
 }
 
-export function toast(message: string, { tone = "info", action }: ToastOptions = {}): void {
+export function toast(message: string, { tone = "info", action, sticky = false }: ToastOptions = {}): void {
   if (!region) return;
 
   const dismiss = () => {
@@ -54,7 +56,7 @@ export function toast(message: string, { tone = "info", action }: ToastOptions =
   );
 
   // Errors and undo offers stay longer, so they can be read and acted on
-  const timer = setTimeout(dismiss, action || tone === "error" ? 7000 : 3500);
+  const timer = sticky ? undefined : setTimeout(dismiss, action || tone === "error" ? 7000 : 3500);
   region.appendChild(el);
   while (region.children.length > 3) region.firstElementChild?.remove();
 }

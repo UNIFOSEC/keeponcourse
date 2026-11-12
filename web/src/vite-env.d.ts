@@ -13,6 +13,9 @@ interface ImportMetaEnv {
   readonly VITE_CF_ANALYTICS_TOKEN?: string;
 }
 
+/** Set at build time (vite.config.ts); "dev" in development */
+declare const __BUILD_ID__: string;
+
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }

@@ -29,6 +29,24 @@ export function createAbout(ctx: Ctx): View {
     ),
 
     section(
+      "download",
+      "Install the app",
+      h("p", { class: "muted" }, "KeepOnCourse can live on your home screen or desktop and open in its own window, like any app. Nothing to download from an app store."),
+      h(
+        "ul",
+        { class: "checklist" },
+        item("iPhone and iPad: open keeponcourse.com in Safari, tap the Share button, then Add to Home Screen.", "monitor"),
+        item("Android: in Chrome, open the ⋮ menu and choose Install app (or Add to Home screen).", "monitor"),
+        item("Computer: in Chrome or Edge, click Install app in the sidebar, or the install icon in the address bar.", "monitor"),
+      ),
+      h(
+        "p",
+        { class: "muted" },
+        "Once installed, it opens even without a connection. Demo courses work offline; courses in an account need a connection to load and save. Updates arrive on their own.",
+      ),
+    ),
+
+    section(
       "code",
       "How it's built",
       h(

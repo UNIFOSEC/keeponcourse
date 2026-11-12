@@ -22,6 +22,9 @@ export default defineConfig({
     baseURL: "http://localhost:4173",
     trace: "retain-on-failure",
     timezoneId: "America/New_York",
+    // The service worker would bypass page.route (used to block live services);
+    // the installable-app test turns it back on
+    serviceWorkers: "block",
   },
   projects: [
     { name: "desktop", use: { ...devices["Desktop Chrome"], channel } },

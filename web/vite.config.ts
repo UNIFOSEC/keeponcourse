@@ -45,6 +45,16 @@ function securityPolicy(connectOrigins: string[], analyticsToken: string): Plugi
 
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+/sw.js
+  Cache-Control: no-cache
+
+/version.json
+  Cache-Control: no-cache
+
+/manifest.webmanifest
+  Content-Type: application/manifest+json
+  Cache-Control: public, max-age=3600
 `;
 
   return {
@@ -68,16 +78,33 @@ function securityPolicy(connectOrigins: string[], analyticsToken: string): Plugi
   };
 }
 
+/**
+ * A build id, compiled into the app and published as version.json. Open tabs
+ * compare the two now and then, and offer a reload when a newer version is
+ * deployed (see src/updates.ts).
+ */
+function buildVersion(id: string): Plugin {
+  return {
+    name: "keeponcourse-version",
+    apply: "build",
+    generateBundle() {
+      this.emitFile({ type: "asset", fileName: "version.json", source: JSON.stringify({ build: id }) });
+    },
+  };
+}
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, ".", "VITE_");
   const analyticsToken = (env.VITE_CF_ANALYTICS_TOKEN ?? "").trim();
   if (analyticsToken && !/^[0-9a-f]{32}$/.test(analyticsToken)) {
     throw new Error("VITE_CF_ANALYTICS_TOKEN must be the 32-character site token from Cloudflare Web Analytics.");
   }
+  const buildId = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
   return {
     // Relative asset paths, so the build works at a domain root or any sub-path
     base: "./",
-    plugins: [securityPolicy([originOf(env.VITE_COACH_URL), originOf(env.VITE_SUPABASE_URL)], analyticsToken)],
+    define: { __BUILD_ID__: JSON.stringify(mode === "production" ? buildId : "dev") },
+    plugins: [securityPolicy([originOf(env.VITE_COACH_URL), originOf(env.VITE_SUPABASE_URL)], analyticsToken), buildVersion(buildId)],
     build: { outDir: "dist", sourcemap: true },
   };
 });

@@ -1,4 +1,5 @@
 import { accountsEnabled } from "./account";
+import { canInstall, onInstallChange, promptInstall } from "./install";
 import { SUPPORT_URL } from "./support";
 import type { App } from "./app";
 import { CoachSession } from "./coach/session";
@@ -77,6 +78,23 @@ export function mountShell(root: HTMLElement, app: App): void {
 
   const sourceBtn = h("button", { class: "sidebar-btn source-btn", attrs: { type: "button" }, on: { click: () => settings.open() } });
   const accountBtn = h("button", { class: "sidebar-btn account-btn", attrs: { type: "button" }, on: { click: () => accountDialog.open() } });
+  // Shown only when the browser offers installing (Chrome, Edge, Android)
+  const installBtn = h(
+    "button",
+    {
+      class: "sidebar-btn install-btn",
+      attrs: { type: "button", "aria-label": "Install KeepOnCourse as an app", title: "Install KeepOnCourse as an app" },
+      on: {
+        click: async () => {
+          if (await promptInstall()) toast("Installed! Open KeepOnCourse from your home screen or app list.", { tone: "success" });
+        },
+      },
+    },
+    icon("download", 19),
+    h("span", { class: "label" }, "Install app"),
+  );
+  installBtn.hidden = !canInstall();
+  onInstallChange(() => (installBtn.hidden = !canInstall()));
 
   const sidebar = h(
     "aside",
@@ -91,7 +109,7 @@ export function mountShell(root: HTMLElement, app: App): void {
       navLink("coach", "sparkles"),
       navLink("about", "info"),
     ),
-    h("div", { class: "sidebar-footer" }, accountsEnabled && accountBtn, sourceBtn, themeToggle()),
+    h("div", { class: "sidebar-footer" }, installBtn, accountsEnabled && accountBtn, sourceBtn, themeToggle()),
     h(
       "nav",
       { class: "sidebar-legal", attrs: { "aria-label": "Legal" } },

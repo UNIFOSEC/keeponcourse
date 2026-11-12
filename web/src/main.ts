@@ -6,7 +6,12 @@ import "./legal.css";
 import "./stats.css";
 import { Account } from "./account";
 import { App } from "./app";
+import { initInstall } from "./install";
 import { mountShell } from "./shell";
+import { startUpdates } from "./updates";
+
+initInstall();
+startUpdates();
 
 const root = document.getElementById("app");
 if (root) {

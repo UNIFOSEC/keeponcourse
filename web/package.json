@@ -12,7 +12,8 @@
     "deploy": "wrangler deploy",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "icons": "node scripts/make-icons.mjs"
   },
   "license": "MIT",
   "devDependencies": {
