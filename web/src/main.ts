@@ -4,6 +4,7 @@ import "./coach.css";
 import "./plan.css";
 import "./legal.css";
 import "./stats.css";
+import "./landing.css";
 import { Account } from "./account";
 import { App } from "./app";
 import { initInstall } from "./install";

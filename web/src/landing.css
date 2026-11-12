@@ -1,0 +1,258 @@
+/* Landing page (#/welcome). Uses tokens from styles.css. The app's sidebar is hidden here. */
+
+.app.is-landing {
+  grid-template-columns: minmax(0, 1fr);
+}
+.app.is-landing .sidebar {
+  display: none;
+}
+.app.is-landing .main {
+  padding: 0;
+}
+
+.landing {
+  --landing-w: 1120px;
+  display: flex;
+  flex-direction: column;
+  gap: 88px;
+  padding: 0 32px 48px;
+  animation: page-in 0.25s ease-out;
+}
+
+.landing > * {
+  width: 100%;
+  max-width: var(--landing-w);
+  margin: 0 auto;
+}
+
+.landing-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 0 0;
+}
+
+/* ---------------------------------------------------------------- hero */
+
+.landing-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 56px;
+}
+
+.landing-kicker {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 16px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.landing h1 {
+  margin: 0;
+  font-size: clamp(36px, 5vw, 56px);
+  line-height: 1.05;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+}
+
+.landing-lead {
+  margin: 20px 0 28px;
+  max-width: 34em;
+  font-size: 18px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+.landing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.landing-cta {
+  min-height: 48px;
+  padding: 0 22px;
+  font-size: 15.5px;
+}
+
+.landing-note {
+  margin: 16px 0 0;
+  font-size: 13.5px;
+  color: var(--text-3);
+}
+
+.landing-shot {
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  box-shadow: 0 30px 70px rgba(15, 26, 46, 0.18), 0 4px 14px rgba(15, 26, 46, 0.06);
+  background: var(--surface);
+}
+.landing-shot img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---------------------------------------------------------------- steps */
+
+.landing h2 {
+  margin: 0 0 28px;
+  font-size: clamp(24px, 3vw, 32px);
+  line-height: 1.2;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.landing-steps ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 20px;
+  counter-reset: step;
+}
+
+.landing-step {
+  position: relative;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  counter-increment: step;
+}
+.landing-step::after {
+  content: counter(step);
+  position: absolute;
+  top: 18px;
+  right: 22px;
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--surface-3);
+}
+.landing-step-icon,
+.landing-feature-icon {
+  display: grid;
+  place-items: center;
+  border-radius: 10px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+.landing-step-icon {
+  width: 40px;
+  height: 40px;
+  margin-bottom: 16px;
+}
+.landing-step h3 {
+  margin: 0 0 6px;
+  font-size: 17px;
+  font-weight: 700;
+}
+.landing-step p {
+  margin: 0;
+  font-size: 14.5px;
+  line-height: 1.6;
+  color: var(--text-2);
+}
+
+/* ---------------------------------------------------------------- features */
+
+.landing-split {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  align-items: center;
+  gap: 56px;
+}
+
+.landing-features {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 18px;
+}
+.landing-features li {
+  display: flex;
+  gap: 14px;
+  align-items: flex-start;
+}
+.landing-feature-icon {
+  flex: none;
+  width: 36px;
+  height: 36px;
+}
+.landing-features li > span:last-child {
+  display: grid;
+  gap: 2px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+/* ---------------------------------------------------------------- closing */
+
+.landing-final {
+  padding: 48px;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--accent-soft), var(--surface-2));
+  border: 1px solid var(--border);
+  text-align: center;
+}
+.landing-final h2 {
+  max-width: 24em;
+  margin: 0 auto 24px;
+  font-size: clamp(20px, 2.4vw, 26px);
+}
+.landing-final .landing-actions {
+  justify-content: center;
+}
+
+.landing-foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  justify-content: center;
+  padding-top: 8px;
+  font-size: 13.5px;
+  color: var(--text-3);
+}
+.landing-foot a {
+  color: var(--text-2);
+}
+
+/* ---------------------------------------------------------------- phones */
+
+@media (max-width: 900px) {
+  .landing {
+    gap: 56px;
+    padding: 0 16px 32px;
+  }
+  .landing-hero,
+  .landing-split {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 32px;
+  }
+  .landing-split-shot {
+    order: 2;
+  }
+  .landing-steps ol {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .landing-final {
+    padding: 32px 20px;
+  }
+  .landing-cta {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}

@@ -6,6 +6,8 @@ It's a TypeScript app built with Vite, with no UI framework. It builds to a stat
 
 ## Features
 
+- **Landing page** (`#/welcome`): first-time visitors opening the bare address see what KeepOnCourse is for (headline, the three steps, features, screenshots) with **Try it now** and **Sign in**; returning visitors, signed-in users and direct links go straight to the app. Screenshots and the 1200×630 link-preview image (`og.jpg`, with Open Graph and Twitter tags) are taken from the running app's demo data with `npm run screenshots`.
+- **Getting started** (new accounts): a five-step checklist on the Overview (add a course, make a plan, check in a session, turn on the weekly email, install the app) that ticks itself off and can be hidden. The demo includes a sample plan for "Conversational Spanish", so trying it shows check-ins, catch-up, the calendar and a streak right away.
 - **Overview:** a greeting, summary tiles (total, in progress, completed, overdue), a completion ring, a status breakdown, and the next five deadlines.
 - **Board:** three status columns. Drag a card to another column to change its status. If the save fails, the move is rolled back.
 - **List:** a sortable table view with a status filter, plus edit and remove actions on each row.

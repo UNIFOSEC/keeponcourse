@@ -1,6 +1,7 @@
 import { dueInfo, formatLongToday, formatTime, greeting, isOverdue, todayISO } from "../dates";
 import { missedSessions, studyStreak, weekProgress } from "../plan";
 import { checkInControls } from "../ui/checkIn";
+import { gettingStartedCard } from "../ui/gettingStarted";
 import { readString, writeString } from "../data/storage";
 import { STATUSES, STATUS_KEY, type Course } from "../types";
 import {
@@ -35,7 +36,10 @@ export function createOverview(ctx: Ctx): View {
     if (app.loadState === "error") return [errorState(ctx)];
 
     const courses = app.courses;
+    // New accounts get a step-by-step start instead of an empty page
+    const gettingStarted = gettingStartedCard(ctx, courses, update);
     if (courses.length === 0) {
+      if (gettingStarted) return [gettingStarted];
       return [
         welcome(),
         emptyState(
@@ -52,6 +56,7 @@ export function createOverview(ctx: Ctx): View {
 
     return [
       welcome(),
+      gettingStarted,
       h(
         "section",
         { class: "kpis", attrs: { "aria-label": "Summary" } },

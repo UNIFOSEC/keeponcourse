@@ -1,4 +1,5 @@
-import { accountsEnabled } from "./account";
+import { accountsEnabled, mightBeSignedIn } from "./account";
+import { readString, writeString } from "./data/storage";
 import { canInstall, onInstallChange, promptInstall } from "./install";
 import { SUPPORT_URL } from "./support";
 import type { App } from "./app";
@@ -19,10 +20,11 @@ import { createCalendar } from "./views/calendar";
 import { createCoach } from "./views/coach";
 import { createPrivacy, createTerms } from "./views/legal";
 import { createStats } from "./views/stats";
+import { createWelcome, VISITED_KEY } from "./views/welcome";
 import { createCourses } from "./views/courses";
 import { createOverview } from "./views/overview";
 
-type Route = "overview" | "courses" | "calendar" | "coach" | "about" | "privacy" | "terms" | "stats";
+type Route = "overview" | "courses" | "calendar" | "coach" | "about" | "privacy" | "terms" | "stats" | "welcome";
 
 const ROUTES: Record<string, Route> = {
   "": "overview",
@@ -35,9 +37,11 @@ const ROUTES: Record<string, Route> = {
   "#/terms": "terms",
   // Private, not in the menu: usage statistics for the site owner
   "#/stats": "stats",
+  // Landing page, shown to first-time visitors (see navigate)
+  "#/welcome": "welcome",
 };
-const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About", privacy: "Privacy", terms: "Terms", stats: "Stats" };
-const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about", privacy: "#/privacy", terms: "#/terms", stats: "#/stats" };
+const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About", privacy: "Privacy", terms: "Terms", stats: "Stats", welcome: "Finish the courses you start" };
+const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about", privacy: "#/privacy", terms: "#/terms", stats: "#/stats", welcome: "#/welcome" };
 const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   overview: createOverview,
   courses: createCourses,
@@ -47,6 +51,7 @@ const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   privacy: createPrivacy,
   terms: createTerms,
   stats: createStats,
+  welcome: createWelcome,
 };
 
 export function mountShell(root: HTMLElement, app: App): void {
@@ -121,7 +126,8 @@ export function mountShell(root: HTMLElement, app: App): void {
 
   const skipLink = h("button", { class: "skip-link", attrs: { type: "button" }, on: { click: () => main.focus() } }, "Skip to content");
 
-  root.replaceChildren(skipLink, h("div", { class: "app" }, sidebar, main), panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el);
+  const appEl = h("div", { class: "app" }, sidebar, main);
+  root.replaceChildren(skipLink, appEl, panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el);
   initToasts(document.body);
 
   function renderSource() {
@@ -173,8 +179,18 @@ export function mountShell(root: HTMLElement, app: App): void {
   let view: View | null = null;
   let route: Route | null = null;
 
+  /** First-time visitors (never been past the landing page, not signed in, not finishing a sign-in) */
+  const firstVisit = () => !readString(VISITED_KEY) && !mightBeSignedIn() && !new URLSearchParams(location.search).has("code");
+
   function navigate() {
-    const next = ROUTES[location.hash] ?? "overview";
+    let next = ROUTES[location.hash] ?? "overview";
+    // Opening the bare address for the first time shows the landing page
+    if (route === null && location.hash === "" && firstVisit()) {
+      history.replaceState(null, "", "#/welcome");
+      next = "welcome";
+    }
+    if (next !== "welcome") writeString(VISITED_KEY, "1");
+    appEl.classList.toggle("is-landing", next === "welcome");
     if (next === route) return;
     route = next;
     view?.destroy?.();
@@ -184,7 +200,7 @@ export function mountShell(root: HTMLElement, app: App): void {
       if (r === next) link.setAttribute("aria-current", "page");
       else link.removeAttribute("aria-current");
     }
-    document.title = `${TITLES[next]} · KeepOnCourse`;
+    document.title = next === "welcome" ? "KeepOnCourse · Finish the courses you start" : `${TITLES[next]} · KeepOnCourse`;
     window.scrollTo(0, 0);
   }
 

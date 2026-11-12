@@ -972,3 +972,75 @@ button.study-main:hover strong {
   font-size: 12.5px;
   font-weight: 600;
 }
+
+/* Overview: Getting started (new accounts) */
+.getting-started {
+  display: grid;
+  gap: 14px;
+}
+.getting-started .card-head {
+  margin-bottom: 0;
+}
+.getting-started .card-head p {
+  margin: 2px 0 0;
+  font-size: 13px;
+}
+.gs-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+.gs-step {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+}
+.gs-step.is-next {
+  background: var(--surface-2);
+}
+.gs-mark {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  color: var(--text-2);
+}
+.gs-step.is-next .gs-mark {
+  border-color: var(--accent);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+.gs-step.is-done .gs-mark {
+  border-color: var(--done);
+  background: var(--done-soft);
+  color: var(--done);
+}
+.gs-step.is-done strong {
+  color: var(--text-2);
+  text-decoration: line-through;
+}
+.gs-body {
+  display: grid;
+  gap: 6px;
+  padding-top: 5px;
+  min-width: 0;
+}
+.gs-body p {
+  margin: 0;
+  font-size: 13.5px;
+}
+.gs-body .row-gap {
+  flex-wrap: wrap;
+}
+.gs-body > .btn,
+.gs-body > .row-gap {
+  justify-self: start;
+  margin-top: 2px;
+}

@@ -19,6 +19,8 @@ test.beforeEach(async ({ page }) => {
     }
   });
   await page.addInitScript(() => {
+    // A returning visitor, so the bare address opens the app (landing.e2e.ts covers first visits)
+    localStorage.setItem("koc.visited", "1");
     document.addEventListener("securitypolicyviolation", (event) => {
       console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`);
     });

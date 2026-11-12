@@ -47,6 +47,11 @@ function hasSavedSession(): boolean {
   }
 }
 
+/** True when this browser has a saved sign-in (checked without loading the accounts library). */
+export function mightBeSignedIn(): boolean {
+  return hasSavedSession();
+}
+
 function urlHasAuthCode(): boolean {
   const params = new URLSearchParams(location.search);
   return params.has("code") || params.has("error_description");
