@@ -44,6 +44,8 @@ export interface Stats {
     weekly_email_subscribers?: number;
     sessions_done_7d?: number;
     checkin_accounts_7d?: number;
+    partner_accounts?: number;
+    cheers_7d?: number;
     coach_daily: CoachDay[];
   };
   anonymous: AnonDay[];
@@ -204,6 +206,11 @@ export function dashboard(stats: Stats): Child[] {
           "Study sessions marked done: people actually following their plans.",
         ),
         signal("Weekly check-in email", a.weekly_email_subscribers === undefined ? "-" : `${num(a.weekly_email_subscribers)} subscribed`, "Accounts that turned on the Monday email."),
+        signal(
+          "Study partners",
+          a.partner_accounts === undefined ? "-" : `${num(a.partner_accounts)} account${a.partner_accounts === 1 ? "" : "s"} sharing · ${num(a.cheers_7d ?? 0)} cheer${a.cheers_7d === 1 ? "" : "s"} in 7 days`,
+          "Accounts that invited someone to follow their progress, and cheers sent back to them.",
+        ),
       ),
     ),
 

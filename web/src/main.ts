@@ -7,6 +7,7 @@ import "./stats.css";
 import "./landing.css";
 import "./feedback.css";
 import "./focus.css";
+import "./partner.css";
 import { Account } from "./account";
 import { App } from "./app";
 import { initInstall } from "./install";

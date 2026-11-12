@@ -99,7 +99,7 @@ export function nextSession(plan: StudyPlan, today = todayISO()): PlanSession | 
 }
 
 /** Sessions before today that were never checked in, for modules that aren't done: what "behind" means. */
-export function missedSessions(plan: StudyPlan, today = todayISO()): PlanSession[] {
+export function missedSessions(plan: { sessions: PlanSession[]; modules: Pick<PlanModule, "done">[] }, today = todayISO()): PlanSession[] {
   return plan.sessions.filter((s) => s.date < today && !s.status && !plan.modules[s.module]?.done);
 }
 
@@ -112,7 +112,7 @@ export function weekStart(iso: string): string {
 export const studiedMinutes = (s: PlanSession) => (s.status === "done" ? (s.actual_minutes ?? s.minutes) : 0);
 
 /** This week's sessions across plans: how many are done (out of those not skipped), and minutes studied. */
-export function weekProgress(plans: StudyPlan[], today = todayISO()): { done: number; total: number; minutes: number } {
+export function weekProgress(plans: Pick<StudyPlan, "sessions">[], today = todayISO()): { done: number; total: number; minutes: number } {
   const start = weekStart(today);
   const end = addDays(start, 6);
   let done = 0;
@@ -143,7 +143,7 @@ export function formatMinutes(total: number): string {
  * last week. This week adds to the streak once a session is done, but an
  * unfinished week in progress doesn't break it.
  */
-export function studyStreak(plans: StudyPlan[], today = todayISO()): number {
+export function studyStreak(plans: Pick<StudyPlan, "sessions">[], today = todayISO()): number {
   const weeks = new Set<string>();
   for (const plan of plans) for (const s of plan.sessions) if (s.status === "done" && s.date <= today) weeks.add(weekStart(s.date));
   let week = weekStart(today);
@@ -157,7 +157,7 @@ export function studyStreak(plans: StudyPlan[], today = todayISO()): number {
 }
 
 /** Done sessions out of all sessions that aren't skipped. */
-export function sessionProgress(plan: StudyPlan): { done: number; total: number } {
+export function sessionProgress(plan: Pick<StudyPlan, "sessions">): { done: number; total: number } {
   const counted = plan.sessions.filter((s) => s.status !== "skipped");
   return { done: counted.filter((s) => s.status === "done").length, total: counted.length };
 }

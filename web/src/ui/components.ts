@@ -1,4 +1,5 @@
 import { errorMessage, type App } from "../app";
+import type { PartnersState } from "./partnerDialog";
 import type { CoachSession } from "../coach/session";
 import { dueInfo } from "../dates";
 import { STATUS_KEY, type Course, type Status } from "../types";
@@ -17,6 +18,9 @@ export interface Ctx {
   openPlanWizard(course?: Course): void;
   /** Reschedule the rest of a study plan from today, after missed sessions. */
   openCatchUp(course: Course): void;
+  /** Study partners (signed-in users): the dialog, and who progress is shared with. */
+  openPartners?(): void;
+  partners?: PartnersState;
 }
 
 export interface View {

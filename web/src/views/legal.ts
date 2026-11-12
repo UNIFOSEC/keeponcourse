@@ -49,6 +49,7 @@ export function createPrivacy(_ctx: Ctx): View {
         "If you turn on calendar sync: a private calendar link and your time zone.",
         "If you turn on the weekly check-in email: that setting, your time zone, and when it was last sent.",
         "Feedback you send, and any replies to it.",
+        "If you invite study partners: the name you gave each partner, the name they see you as, their private links, when each link was last opened, and the cheers they send.",
         "Daily counts of your Coach messages and of the AI tokens they used, so the daily allowance works and we know what Coach costs to run.",
       ),
       p("This data is stored with Supabase, our database and sign-in provider. Each account can only ever read its own data; this is enforced by the database itself."),
@@ -77,6 +78,13 @@ export function createPrivacy(_ctx: Ctx): View {
       "Weekly check-in email",
       p(
         "It's off unless you turn it on in your account. Every Monday morning (in your time zone) it lists your study sessions for the week, any sessions to catch up on, and when each plan finishes. Every email has a one-click unsubscribe link, and you can turn it off in your account at any time.",
+      ),
+    ),
+
+    section(
+      "Study partners",
+      p(
+        "If you invite a study partner, anyone with their private link can see a summary of your progress without signing in: the name you chose to show them, this week's study sessions, the time you studied, your streak, and each study plan's sessions, target date and whether it's on track. Course and module names are included only if you turn that on for that partner. They never see your email address, course descriptions or Coach chats. Partners can send cheers from a fixed list (no messages). We record when a link was last opened, but nothing about who opened it. Stopping sharing deletes the link at once, along with its cheers.",
       ),
     ),
 

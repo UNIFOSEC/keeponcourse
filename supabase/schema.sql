@@ -325,6 +325,9 @@ begin
        where s ->> 'status' = 'done'
          and (s ->> 'date') ~ '^\d{4}-\d{2}-\d{2}$'
          and (s ->> 'date') > (today - 7)::text and (s ->> 'date') <= today::text),
+    -- Study partners (tables further down; plpgsql looks them up when it runs)
+    'partner_accounts', (select count(distinct i.user_id) from public.partner_invites i),
+    'cheers_7d', (select count(*) from public.partner_cheers c where c.created_at > now() - interval '7 days'),
     'coach_daily', (
       select jsonb_agg(jsonb_build_object(
                'day', c.day, 'messages', c.messages, 'people', c.people, 'limit_hits', c.limit_hits,
@@ -606,3 +609,206 @@ grant execute on function public.my_feedback() to authenticated;
 grant execute on function public.mark_feedback_replies_seen() to authenticated;
 grant execute on function public.admin_feedback(text, integer) to authenticated;
 grant execute on function public.admin_update_feedback(bigint, text, text) to authenticated;
+
+-- ---------------------------------------------------------- study partners
+
+-- A learner can share their study progress with up to 5 people (a friend, a
+-- mentor, a classmate), each through their own secret link (64 random hex
+-- characters; the link is the credential, like the calendar feed). Partners
+-- don't need an account. They see a read-only summary: this week's sessions,
+-- the streak, and whether each plan is on track. Course and module names are
+-- shared only if the learner turns that on. Partners can send one-tap cheers
+-- from a fixed list (no free text, so a link can't be used to send messages).
+-- Stopping sharing deletes the invite, and the link stops working at once.
+-- Nobody can read or write these tables directly.
+create table if not exists public.partner_invites (
+  id             bigint generated always as identity primary key,
+  user_id        uuid not null references auth.users (id) on delete cascade,
+  token          text not null unique check (token ~ '^[0-9a-f]{64}$'),
+  -- What the learner calls this partner ("Sam", "My mentor"); shown only to the learner
+  label          text not null check (char_length(btrim(label)) between 1 and 40),
+  -- How the partner sees the learner ("Alex")
+  display_name   text not null check (char_length(btrim(display_name)) between 1 and 40),
+  show_names     boolean not null default false,
+  timezone       text not null default 'UTC' check (char_length(timezone) <= 64),
+  created_at     timestamptz not null default now(),
+  last_viewed_at timestamptz
+);
+create index if not exists partner_invites_user_idx on public.partner_invites (user_id);
+alter table public.partner_invites enable row level security;
+revoke all on public.partner_invites from anon, authenticated;
+
+create table if not exists public.partner_cheers (
+  id         bigint generated always as identity primary key,
+  invite_id  bigint not null references public.partner_invites (id) on delete cascade,
+  user_id    uuid not null references auth.users (id) on delete cascade,
+  kind       text not null check (kind in ('keep_going', 'proud', 'streak', 'you_got_this')),
+  seen       boolean not null default false,
+  created_at timestamptz not null default now()
+);
+create index if not exists partner_cheers_user_idx on public.partner_cheers (user_id, created_at desc);
+create index if not exists partner_cheers_invite_idx on public.partner_cheers (invite_id, created_at desc);
+alter table public.partner_cheers enable row level security;
+revoke all on public.partner_cheers from anon, authenticated;
+
+-- The caller's partners, with their links and how they've used them
+create or replace function public.my_partners()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', i.id, 'label', i.label, 'display_name', i.display_name, 'token', i.token,
+           'show_names', i.show_names, 'created_at', i.created_at, 'last_viewed_at', i.last_viewed_at,
+           'cheers', (select count(*) from public.partner_cheers c where c.invite_id = i.id))
+         order by i.created_at), '[]'::jsonb)
+    from public.partner_invites i
+   where i.user_id = auth.uid();
+$$;
+
+-- Invites a partner (at most 5). Returns the new invite's id and token.
+create or replace function public.create_partner_invite(label text, display_name text, show_names boolean default false, tz text default null)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  zone    text := 'UTC';
+  new_id  bigint;
+  new_tok text := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  -- One at a time per account, so two quick clicks can't go past the limit
+  perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('partner_invites:' || auth.uid()::text));
+  if (select count(*) from public.partner_invites i where i.user_id = auth.uid()) >= 5 then
+    raise exception 'You can have up to 5 study partners. Stop sharing with one to invite someone new.' using errcode = 'check_violation';
+  end if;
+  if tz is not null and exists (select 1 from pg_catalog.pg_timezone_names where name = tz) then
+    zone := tz;
+  end if;
+  insert into public.partner_invites (user_id, token, label, display_name, show_names, timezone)
+  values (auth.uid(), new_tok, btrim(create_partner_invite.label), btrim(create_partner_invite.display_name),
+          coalesce(create_partner_invite.show_names, false), zone)
+  returning id into new_id;
+  return jsonb_build_object('id', new_id, 'token', new_tok);
+end $$;
+
+-- Changes what one partner sees: course names, and the name they see you as
+create or replace function public.update_partner_invite(invite_id bigint, show_names boolean, display_name text default null)
+returns boolean language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  update public.partner_invites i set
+    show_names   = coalesce(update_partner_invite.show_names, i.show_names),
+    display_name = coalesce(nullif(btrim(update_partner_invite.display_name), ''), i.display_name)
+  where i.id = invite_id and i.user_id = auth.uid();
+  return found;
+end $$;
+
+-- Stops sharing with a partner: their link stops working, and their cheers are deleted
+create or replace function public.delete_partner_invite(invite_id bigint)
+returns boolean language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  delete from public.partner_invites i where i.id = invite_id and i.user_id = auth.uid();
+  return found;
+end $$;
+
+-- What a partner sees, by link. Callable without signing in, but only with
+-- the exact token. Sessions carry only dates, lengths and check-ins; names of
+-- courses and modules are included only when the learner allowed it.
+create or replace function public.partner_view(token text)
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  inv public.partner_invites;
+begin
+  if token is null or token !~ '^[0-9a-f]{64}$' then
+    return null;
+  end if;
+  select * into inv from public.partner_invites i where i.token = partner_view.token;
+  if not found then
+    return null;
+  end if;
+  -- Remember when the partner last looked (at most once an hour)
+  if inv.last_viewed_at is null or inv.last_viewed_at < now() - interval '1 hour' then
+    update public.partner_invites set last_viewed_at = now() where id = inv.id;
+  end if;
+  return jsonb_build_object(
+    'display_name', inv.display_name,
+    'show_names', inv.show_names,
+    'timezone', inv.timezone,
+    'cheers_today', (select count(*) from public.partner_cheers c
+                      where c.invite_id = inv.id and c.created_at > now() - interval '1 day'),
+    'courses', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'name', case when inv.show_names then c.name end,
+               'target_date', c.target_date,
+               'status', c.status,
+               'modules', (select coalesce(jsonb_agg(jsonb_build_object(
+                                    'title', case when inv.show_names then left(m ->> 'title', 80) end,
+                                    'done', (m -> 'done') = 'true'::jsonb)), '[]'::jsonb)
+                             from jsonb_array_elements(case when jsonb_typeof(c.plan -> 'modules') = 'array' then c.plan -> 'modules' else '[]'::jsonb end) m
+                            where jsonb_typeof(m) = 'object'),
+               'sessions', (select coalesce(jsonb_agg(jsonb_build_object(
+                                    'date', s -> 'date', 'minutes', s -> 'minutes', 'module', s -> 'module',
+                                    'status', s -> 'status', 'actual_minutes', s -> 'actual_minutes')), '[]'::jsonb)
+                              from jsonb_array_elements(case when jsonb_typeof(c.plan -> 'sessions') = 'array' then c.plan -> 'sessions' else '[]'::jsonb end) s
+                             where jsonb_typeof(s) = 'object'))
+             order by (c.status = 'Completed'), c.target_date, c.id)
+        from public.courses c
+       where c.user_id = inv.user_id and c.plan is not null), '[]'::jsonb));
+end $$;
+
+-- A one-tap cheer from a partner's link (at most 5 a day per link)
+create or replace function public.send_cheer(token text, kind text)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare
+  inv public.partner_invites;
+begin
+  if token is null or token !~ '^[0-9a-f]{64}$' then
+    return false;
+  end if;
+  select * into inv from public.partner_invites i where i.token = send_cheer.token for update;
+  if not found then
+    return false;
+  end if;
+  if (select count(*) from public.partner_cheers c
+       where c.invite_id = inv.id and c.created_at > now() - interval '1 day') >= 5 then
+    raise exception 'That''s plenty of cheering for today. Thank you! Come back tomorrow.' using errcode = 'check_violation';
+  end if;
+  insert into public.partner_cheers (invite_id, user_id, kind) values (inv.id, inv.user_id, send_cheer.kind);
+  return true;
+end $$;
+
+-- The caller's cheers from the last 30 days, newest first, with who sent them
+create or replace function public.my_cheers()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object('id', c.id, 'kind', c.kind, 'from', i.label, 'seen', c.seen, 'created_at', c.created_at)
+         order by c.created_at desc), '[]'::jsonb)
+    from (select * from public.partner_cheers
+           where user_id = auth.uid() and created_at > now() - interval '30 days'
+           order by created_at desc limit 30) c
+    join public.partner_invites i on i.id = c.invite_id;
+$$;
+
+create or replace function public.mark_cheers_seen()
+returns void language sql security definer set search_path = '' as $$
+  update public.partner_cheers set seen = true where user_id = auth.uid() and not seen;
+$$;
+
+revoke all on function public.my_partners() from public, anon;
+revoke all on function public.create_partner_invite(text, text, boolean, text) from public, anon;
+revoke all on function public.update_partner_invite(bigint, boolean, text) from public, anon;
+revoke all on function public.delete_partner_invite(bigint) from public, anon;
+revoke all on function public.my_cheers() from public, anon;
+revoke all on function public.mark_cheers_seen() from public, anon;
+revoke all on function public.partner_view(text) from public;
+revoke all on function public.send_cheer(text, text) from public;
+grant execute on function public.my_partners() to authenticated;
+grant execute on function public.create_partner_invite(text, text, boolean, text) to authenticated;
+grant execute on function public.update_partner_invite(bigint, boolean, text) to authenticated;
+grant execute on function public.delete_partner_invite(bigint) to authenticated;
+grant execute on function public.my_cheers() to authenticated;
+grant execute on function public.mark_cheers_seen() to authenticated;
+grant execute on function public.partner_view(text) to anon, authenticated;
+grant execute on function public.send_cheer(text, text) to anon, authenticated;

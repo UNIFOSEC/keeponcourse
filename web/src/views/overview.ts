@@ -2,6 +2,8 @@ import { dueInfo, formatLongToday, formatTime, greeting, isOverdue, todayISO } f
 import { formatMinutes, missedSessions, studyStreak, weekProgress } from "../plan";
 import { checkInControls } from "../ui/checkIn";
 import { gettingStartedCard } from "../ui/gettingStarted";
+import { ago, namesList } from "../ui/partnerDialog";
+import { CHEERS } from "../partner";
 import { readString, writeString } from "../data/storage";
 import { STATUSES, STATUS_KEY, type Course } from "../types";
 import {
@@ -218,6 +220,42 @@ export function createOverview(ctx: Ctx): View {
             ),
           ),
         ),
+      partnerRow(),
+    );
+  }
+
+  /** Who this progress is shared with, and the latest cheer; or an invitation to add a partner. */
+  function partnerRow(): Child {
+    const account = ctx.app.account.state;
+    if (!ctx.openPartners || account.status === "disabled" || account.status === "loading") return null;
+    if (account.status !== "signed-in") {
+      return h(
+        "div",
+        { class: "study-partners" },
+        h("span", { class: "study-partners-icon" }, icon("users", 16)),
+        h("span", { class: "study-partners-text muted" }, "Sign in to share your progress with a study partner."),
+        h("button", { class: "btn btn-ghost btn-sm", attrs: { type: "button" }, on: { click: () => ctx.openAccount() } }, "Sign in"),
+      );
+    }
+    const invites = ctx.partners?.invites;
+    if (!invites) return null;
+    const weekAgo = Date.now() - 7 * 86_400_000;
+    const cheer = ctx.partners?.cheers.find((c) => new Date(c.created_at).getTime() > weekAgo);
+    return h(
+      "div",
+      { class: "study-partners" },
+      h("span", { class: "study-partners-icon" }, icon("users", 16)),
+      h(
+        "span",
+        { class: "study-partners-text" },
+        invites.length ? h("strong", {}, `Shared with ${namesList(invites.map((i) => i.label))}`) : h("span", { class: "muted" }, "Studying is easier when someone is following along."),
+        cheer && h("span", { class: "muted" }, `${CHEERS[cheer.kind].emoji} ${cheer.from} cheered you on ${ago(cheer.created_at)}`),
+      ),
+      h(
+        "button",
+        { class: "btn btn-secondary btn-sm", attrs: { type: "button" }, on: { click: () => ctx.openPartners?.() } },
+        invites.length ? h("span", {}, "Study partners") : [icon("plus", 15), h("span", {}, "Add a study partner")],
+      ),
     );
   }
 

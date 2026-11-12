@@ -13,6 +13,7 @@ import { createImportDialog } from "./ui/importDialog";
 import { createCatchUpDialog } from "./ui/catchUpDialog";
 import { createFeedbackDialog } from "./ui/feedbackDialog";
 import { initFocus } from "./ui/focusTimer";
+import { createPartnerDialog } from "./ui/partnerDialog";
 import { createPlanWizard } from "./ui/planWizard";
 import { createSettingsDialog } from "./ui/settingsDialog";
 import { themeToggle } from "./ui/theme";
@@ -25,8 +26,10 @@ import { createStats } from "./views/stats";
 import { createWelcome, VISITED_KEY } from "./views/welcome";
 import { createCourses } from "./views/courses";
 import { createOverview } from "./views/overview";
+import { createPartnerPage } from "./views/partner";
+import { isPartnerHash } from "./partner";
 
-type Route = "overview" | "courses" | "calendar" | "coach" | "about" | "privacy" | "terms" | "stats" | "welcome";
+type Route = "overview" | "courses" | "calendar" | "coach" | "about" | "privacy" | "terms" | "stats" | "welcome" | "partner";
 
 const ROUTES: Record<string, Route> = {
   "": "overview",
@@ -42,8 +45,8 @@ const ROUTES: Record<string, Route> = {
   // Landing page, shown to first-time visitors (see navigate)
   "#/welcome": "welcome",
 };
-const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About", privacy: "Privacy", terms: "Terms", stats: "Stats", welcome: "Finish the courses you start" };
-const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about", privacy: "#/privacy", terms: "#/terms", stats: "#/stats", welcome: "#/welcome" };
+const TITLES: Record<Route, string> = { overview: "Overview", courses: "Courses", calendar: "Calendar", coach: "Coach", about: "About", privacy: "Privacy", terms: "Terms", stats: "Stats", welcome: "Finish the courses you start", partner: "Study progress" };
+const HREFS: Record<Route, string> = { overview: "#/", courses: "#/courses", calendar: "#/calendar", coach: "#/coach", about: "#/about", privacy: "#/privacy", terms: "#/terms", stats: "#/stats", welcome: "#/welcome", partner: "#/" };
 const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   overview: createOverview,
   courses: createCourses,
@@ -54,6 +57,8 @@ const VIEWS: Record<Route, (ctx: Ctx) => View> = {
   terms: createTerms,
   stats: createStats,
   welcome: createWelcome,
+  // A study partner's read-only view of someone's progress (#/p/<token>)
+  partner: createPartnerPage,
 };
 
 export function mountShell(root: HTMLElement, app: App): void {
@@ -64,6 +69,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   const settings = createSettingsDialog(app);
   const accountDialog = createAccountDialog(app, app.account, () => coach.reset(), coach.configured ? () => coach.sendSampleDigest() : undefined);
   const importDialog = createImportDialog(app);
+  const partnerDialog = createPartnerDialog(app, () => view?.update());
   const ctx: Ctx = {
     app,
     coach,
@@ -72,6 +78,8 @@ export function mountShell(root: HTMLElement, app: App): void {
     openAccount: () => accountDialog.open(),
     openPlanWizard: (course) => planWizard.open(course),
     openCatchUp: (course) => catchUpDialog.open(course),
+    openPartners: () => partnerDialog.open(),
+    partners: partnerDialog.state,
   };
 
   const main = h("main", { class: "main", attrs: { id: "main", tabindex: -1 } });
@@ -149,7 +157,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   const skipLink = h("button", { class: "skip-link", attrs: { type: "button" }, on: { click: () => main.focus() } }, "Skip to content");
 
   const appEl = h("div", { class: "app" }, sidebar, main);
-  root.replaceChildren(skipLink, appEl, panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el, feedbackDialog.el);
+  root.replaceChildren(skipLink, appEl, panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el, feedbackDialog.el, partnerDialog.el);
   initToasts(document.body);
   initFocus(app);
 
@@ -206,26 +214,30 @@ export function mountShell(root: HTMLElement, app: App): void {
       toast(state.error, { tone: "error" });
     }
     renderAccount();
+    void partnerDialog.load();
   });
   app.subscribe(() => importDialog.maybeOffer());
 
   let view: View | null = null;
   let route: Route | null = null;
+  let routeHash = "";
 
   /** First-time visitors (never been past the landing page, not signed in, not finishing a sign-in) */
   const firstVisit = () => !readString(VISITED_KEY) && !mightBeSignedIn() && !new URLSearchParams(location.search).has("code");
 
   function navigate() {
-    let next = ROUTES[location.hash] ?? "overview";
+    let next = isPartnerHash(location.hash) ? "partner" : (ROUTES[location.hash] ?? "overview");
     // Opening the bare address for the first time shows the landing page
     if (route === null && location.hash === "" && firstVisit()) {
       history.replaceState(null, "", "#/welcome");
       next = "welcome";
     }
-    if (next !== "welcome") writeString(VISITED_KEY, "1");
-    appEl.classList.toggle("is-landing", next === "welcome");
-    if (next === route) return;
+    // A partner's link isn't a visit to the app: they still get the landing page later
+    if (next !== "welcome" && next !== "partner") writeString(VISITED_KEY, "1");
+    appEl.classList.toggle("is-landing", next === "welcome" || next === "partner");
+    if (next === route && (next !== "partner" || location.hash === routeHash)) return;
     route = next;
+    routeHash = location.hash;
     view?.destroy?.();
     view = VIEWS[next](ctx);
     main.replaceChildren(view.el);
