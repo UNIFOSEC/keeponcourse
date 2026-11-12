@@ -13,13 +13,14 @@
  */
 import Anthropic from "@anthropic-ai/sdk";
 import { matchFeedPath, serveFeed } from "./calendar";
+import { handleDigestTest, handleUnsubscribe, matchUnsubscribePath, runWeeklyDigest, type DigestEnv } from "./digest";
 import { planFromSyllabus, validatePlanRequest } from "./planner";
 import { SYSTEM_PROMPT, TOOLS } from "./prompt";
 import { accountStats, anonHistory, estimateCost, rollUpAnon, StatsError, type TokenCounts } from "./stats";
-import { bearerToken, limitOf, peekUsage, recordTokens, useMessage, UsageError, type Usage, type UsageEnv } from "./usage";
+import { bearerToken, limitOf, peekUsage, recordTokens, useMessage, UsageError, type Usage } from "./usage";
 import { RequestError, validateMessages } from "./validate";
 
-export interface Env extends UsageEnv {
+export interface Env extends DigestEnv {
   ANTHROPIC_API_KEY: string;
   /** Comma-separated list, e.g. "https://unifosec.github.io,http://localhost:5173" */
   ALLOWED_ORIGINS: string;
@@ -62,6 +63,18 @@ export default {
         if (!success) return new Response("Too many requests", { status: 429, headers: { "Retry-After": "60" } });
       }
       return serveFeed(feedToken, env);
+    }
+
+    // One-click unsubscribe from the weekly email: opened from mail apps, so no
+    // Origin check; the 64-character token in the path is the credential
+    const unsubscribeToken = matchUnsubscribePath(url.pathname);
+    if (unsubscribeToken) return handleUnsubscribe(request, env, unsubscribeToken);
+
+    // A sample of the signed-in user's weekly email
+    if (url.pathname === "/digest/test") {
+      if (request.method !== "POST") return json({ error: "Use POST" }, 405, cors);
+      if (!origin) return json({ error: "This origin isn't allowed to use Coach.", code: "forbidden" }, 403);
+      return handleDigestTest(request, env, cors);
     }
 
     // Today's allowance, for the app's "N messages left today"
@@ -129,11 +142,19 @@ export default {
     return streamReply(messages, env, { ...cors, ...usageHeaders(usage) }, ctx, usage.signedIn ? bearerToken(request) : null);
   },
 
-  // Daily (see wrangler.jsonc): keep yesterday's anonymous totals before the per-visitor counters expire
-  async scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
-    if (env.COACH_USAGE) ctx.waitUntil(rollUpAnon(env.COACH_USAGE).then(() => undefined));
+  // Cron triggers (see wrangler.jsonc)
+  async scheduled(controller: ScheduledController, env: Env, ctx: ExecutionContext): Promise<void> {
+    if (controller.cron === DAILY_ROLLUP) {
+      // Keep yesterday's anonymous totals before the per-visitor counters expire
+      if (env.COACH_USAGE) ctx.waitUntil(rollUpAnon(env.COACH_USAGE).then(() => undefined));
+    } else {
+      // Hourly: weekly check-in emails for users whose Monday morning it is
+      ctx.waitUntil(runWeeklyDigest(env).then(() => undefined));
+    }
   },
 } satisfies ExportedHandler<Env>;
+
+const DAILY_ROLLUP = "15 0 * * *";
 
 /** Token counts from a Claude response's usage block. */
 function tokensOf(usage: { input_tokens: number; output_tokens: number; cache_read_input_tokens?: number | null; cache_creation_input_tokens?: number | null }): TokenCounts {

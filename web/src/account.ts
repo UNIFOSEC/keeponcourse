@@ -155,6 +155,22 @@ export class Account {
     return data;
   }
 
+  /** Whether the weekly check-in email is on (off by default). */
+  async weeklyCheckin(): Promise<boolean> {
+    const sb = await client();
+    const { data, error } = await sb.rpc("my_weekly_checkin");
+    if (error) throw new Error("Couldn't load your email settings.");
+    return data === true;
+  }
+
+  /** Turns the weekly check-in email on or off; it's sent Monday morning in this browser's time zone. */
+  async setWeeklyCheckin(enabled: boolean): Promise<void> {
+    const sb = await client();
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const { error } = await sb.rpc("set_weekly_checkin", { enabled, tz });
+    if (error) throw new Error("Couldn't save your email settings. Please try again.");
+  }
+
   /** The signed-in user's access token (for Coach), or null when signed out. */
   async accessToken(forceRefresh = false): Promise<string | null> {
     if (!this.signedIn) return null;

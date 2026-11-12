@@ -87,6 +87,16 @@ npx wrangler deploy
 2. Put that URL in `web/.env.production` as `VITE_COACH_URL`, then rebuild the web app. The build adds the URL to the page's Content Security Policy automatically.
 3. Make sure your site's origin (for example `https://unifosec.github.io`) is in `ALLOWED_ORIGINS` in `wrangler.jsonc`.
 
+### Weekly check-in email
+
+An hourly cron trigger (`src/digest.ts`) emails users who turned the weekly check-in on, on Monday from 8 AM in their time zone: this week's sessions, missed sessions with a catch-up link, and each plan's finish date against its target. Users with nothing scheduled and nothing missed get no email. It stays off until both secrets are set:
+
+1. Re-run [`supabase/schema.sql`](../supabase/schema.sql), then in the SQL Editor run `select private.new_digest_job_key();`. Copy the 64-character result. The database stores only its SHA-256 hash, and the key only lets the job list who's due and mark them sent.
+2. `npx wrangler secret put DIGEST_JOB_KEY` and paste it.
+3. In Resend, create an API key with **Sending access**, restricted to the `keeponcourse.com` domain. `npx wrangler secret put RESEND_API_KEY` and paste it.
+
+`APP_URL`, `PUBLIC_URL` (this Worker's URL, for unsubscribe links) and `DIGEST_FROM` are plain vars in `wrangler.jsonc`. Emails go out in one Resend batch per hourly run (at most 100 people), with `List-Unsubscribe` one-click headers; if sending fails, those users aren't marked as sent, so the next hourly run retries. On Resend's free plan, keep in mind its daily sending limit.
+
 ## API
 
 `POST /chat` with `{ "messages": [...] }` (Claude Messages API format). The response is newline-delimited JSON:
@@ -109,5 +119,7 @@ Send `Authorization: Bearer <Supabase access token>` to use a signed-in user's a
 `GET /usage` returns today's allowance without counting anything: `{"signedIn":false,"limit":15,"used":3,"remaining":12}`.
 
 `GET /stats` returns usage statistics for the site owner: account totals from the database function `app_stats()` (called with the caller's sign-in token, so the database decides who may see them; anyone not in `stats_viewers` gets 403), the last 30 days of anonymous totals, and a cost estimate from the tokens recorded for signed-in replies. A daily cron trigger (00:15 UTC, `wrangler.jsonc`) stores yesterday's anonymous totals before the per-visitor counters expire; the stored totals hold only numbers.
+
+`GET /unsubscribe/<token>` shows a confirm button and `POST` to the same URL unsubscribes (mail apps' one-click unsubscribe POSTs there; link scanners that only GET can't unsubscribe anyone). `POST /digest/test` (signed in, from the app) emails the caller a sample of their weekly check-in, at most 3 a day.
 
 `GET /health` returns `{"ok":true,"model":"..."}`.

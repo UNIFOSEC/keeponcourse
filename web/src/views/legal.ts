@@ -47,6 +47,7 @@ export function createPrivacy(_ctx: Ctx): View {
         "Your email address, used only to send you sign-in links and codes. There's no password.",
         "Your courses and study plans (names, descriptions, dates, statuses, modules and scheduled sessions).",
         "If you turn on calendar sync: a private calendar link and your time zone.",
+        "If you turn on the weekly check-in email: that setting, your time zone, and when it was last sent.",
         "Daily counts of your Coach messages and of the AI tokens they used, so the daily allowance works and we know what Coach costs to run.",
       ),
       p("This data is stored with Supabase, our database and sign-in provider. Each account can only ever read its own data; this is enforced by the database itself."),
@@ -72,6 +73,13 @@ export function createPrivacy(_ctx: Ctx): View {
     ),
 
     section(
+      "Weekly check-in email",
+      p(
+        "It's off unless you turn it on in your account. Every Monday morning (in your time zone) it lists your study sessions for the week, any sessions to catch up on, and when each plan finishes. Every email has a one-click unsubscribe link, and you can turn it off in your account at any time.",
+      ),
+    ),
+
+    section(
       "Usage statistics",
       p(
         "To run KeepOnCourse and decide how to keep it going, we look at totals only: how many accounts were active in a week, how many Coach messages were answered, how often the daily limit was reached, and what Coach costs. Only the site owner can see them, and they never include names, email addresses, course content or chats.",
@@ -93,7 +101,8 @@ export function createPrivacy(_ctx: Ctx): View {
       "Service providers",
       list(
         "Cloudflare hosts the website and runs our Coach and calendar server.",
-        "Supabase stores accounts and synced data, and sends sign-in emails.",
+        "Supabase stores accounts and synced data.",
+        "Resend delivers our emails (sign-in links and codes, and the weekly check-in if you turn it on).",
         "Anthropic provides the Claude AI model behind Coach.",
       ),
       p(

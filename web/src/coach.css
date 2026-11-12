@@ -607,6 +607,38 @@
   margin: 10px auto 0;
 }
 
+.account-weekly {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+}
+.account-switch {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  cursor: pointer;
+}
+.account-switch input {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+.account-switch > span {
+  display: grid;
+  gap: 2px;
+}
+.account-switch .muted {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.account-weekly .btn {
+  justify-self: start;
+}
+
 .account-sent-icon {
   display: grid;
   place-items: center;

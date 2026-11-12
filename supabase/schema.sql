@@ -322,3 +322,165 @@ end $$;
 
 revoke all on function public.app_stats(integer) from public, anon;
 grant execute on function public.app_stats(integer) to authenticated;
+
+-- ------------------------------------------------------- weekly check-in
+
+-- Opt-in weekly email (Monday morning in the user's time zone): this week's
+-- study sessions, missed sessions and the finish date. Off unless the user
+-- turns it on. Each row has a secret unsubscribe token for one-click
+-- unsubscribe links. Nobody can read or write this table directly.
+create table if not exists public.email_prefs (
+  user_id           uuid primary key references auth.users (id) on delete cascade,
+  weekly_checkin    boolean not null default false,
+  timezone          text not null default 'UTC',
+  unsubscribe_token text not null unique check (unsubscribe_token ~ '^[0-9a-f]{64}$'),
+  last_sent_at      timestamptz,
+  updated_at        timestamptz not null default now()
+);
+alter table public.email_prefs enable row level security;
+revoke all on public.email_prefs from anon, authenticated;
+
+create or replace function public.my_weekly_checkin()
+returns boolean language sql stable security definer set search_path = '' as $$
+  select coalesce((select weekly_checkin from public.email_prefs where user_id = auth.uid()), false);
+$$;
+
+-- Turns the weekly email on or off for the caller; tz is an IANA time zone
+-- (e.g. "America/New_York"), ignored when unknown
+create or replace function public.set_weekly_checkin(enabled boolean, tz text default null)
+returns boolean language plpgsql security definer set search_path = '' as $$
+declare
+  zone text := 'UTC';
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  if tz is not null and exists (select 1 from pg_catalog.pg_timezone_names where name = tz) then
+    zone := tz;
+  end if;
+  insert into public.email_prefs (user_id, weekly_checkin, timezone, unsubscribe_token)
+  values (auth.uid(), enabled, zone, replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', ''))
+  on conflict (user_id) do update set
+    weekly_checkin = excluded.weekly_checkin,
+    timezone       = case when tz is null then public.email_prefs.timezone else excluded.timezone end,
+    updated_at     = now();
+  return enabled;
+end $$;
+
+-- One-click unsubscribe from an email link: the token is the credential
+create or replace function public.unsubscribe_weekly(token text)
+returns boolean language plpgsql security definer set search_path = '' as $$
+begin
+  if token is null or token !~ '^[0-9a-f]{64}$' then
+    return false;
+  end if;
+  update public.email_prefs set weekly_checkin = false, updated_at = now() where unsubscribe_token = token;
+  return found;
+end $$;
+
+-- What a weekly email would contain for the caller (for "Send me a sample")
+create or replace function public.my_weekly_digest()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select jsonb_build_object(
+    'email', u.email,
+    'timezone', coalesce(p.timezone, 'UTC'),
+    'unsubscribe_token', p.unsubscribe_token,
+    'courses', coalesce((
+      select jsonb_agg(jsonb_build_object('name', c.name, 'target_date', c.target_date, 'status', c.status, 'plan', c.plan) order by c.target_date)
+        from public.courses c
+       where c.user_id = u.id and c.plan is not null and c.status <> 'Completed'), '[]'::jsonb))
+  from auth.users u
+  left join public.email_prefs p on p.user_id = u.id
+  where u.id = auth.uid();
+$$;
+
+revoke all on function public.my_weekly_checkin() from public, anon;
+revoke all on function public.set_weekly_checkin(boolean, text) from public, anon;
+revoke all on function public.my_weekly_digest() from public, anon;
+revoke all on function public.unsubscribe_weekly(text) from public;
+grant execute on function public.my_weekly_checkin() to authenticated;
+grant execute on function public.set_weekly_checkin(boolean, text) to authenticated;
+grant execute on function public.my_weekly_digest() to authenticated;
+grant execute on function public.unsubscribe_weekly(text) to anon, authenticated;
+
+-- The weekly job (a cron trigger in the Coach Worker) proves itself with a
+-- job key. Only its SHA-256 hash is stored, in a schema the API doesn't
+-- expose. To create or replace the key, run this in the SQL Editor and put
+-- the result in the Worker (npx wrangler secret put DIGEST_JOB_KEY):
+--   select private.new_digest_job_key();
+create schema if not exists private;
+revoke all on schema private from public, anon, authenticated;
+
+create table if not exists private.job_keys (
+  name       text primary key,
+  key_hash   text not null,
+  created_at timestamptz not null default now()
+);
+
+create or replace function private.new_digest_job_key()
+returns text language plpgsql security definer set search_path = '' as $$
+declare
+  k text := replace(gen_random_uuid()::text || gen_random_uuid()::text, '-', '');
+begin
+  insert into private.job_keys (name, key_hash)
+  values ('weekly_digest', encode(sha256(convert_to(k, 'UTF8')), 'hex'))
+  on conflict (name) do update set key_hash = excluded.key_hash, created_at = now();
+  return k;
+end $$;
+revoke all on function private.new_digest_job_key() from public, anon, authenticated;
+
+create or replace function private.check_job_key(job_key text)
+returns void language plpgsql stable security definer set search_path = '' as $$
+begin
+  if job_key is null or not exists (
+    select 1 from private.job_keys
+     where name = 'weekly_digest' and key_hash = encode(sha256(convert_to(job_key, 'UTF8')), 'hex')
+  ) then
+    raise exception 'Not allowed.' using errcode = 'insufficient_privilege';
+  end if;
+end $$;
+revoke all on function private.check_job_key(text) from public, anon, authenticated;
+
+-- Opted-in users whose local time is Monday, 8 AM or later, and who haven't
+-- had this week's email yet (at most 100 per call)
+create or replace function public.weekly_digest_due(job_key text, max_users integer default 100)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+begin
+  perform private.check_job_key(job_key);
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'user_id', due.user_id,
+             'email', u.email,
+             'timezone', due.timezone,
+             'unsubscribe_token', due.unsubscribe_token,
+             'courses', coalesce((
+               select jsonb_agg(jsonb_build_object('name', c.name, 'target_date', c.target_date, 'status', c.status, 'plan', c.plan) order by c.target_date)
+                 from public.courses c
+                where c.user_id = due.user_id and c.plan is not null and c.status <> 'Completed'), '[]'::jsonb)))
+      from (select e.* from public.email_prefs e
+             where e.weekly_checkin
+               and extract(isodow from now() at time zone e.timezone) = 1
+               and extract(hour from now() at time zone e.timezone) >= 8
+               and (e.last_sent_at is null or e.last_sent_at < now() - interval '6 days')
+             order by e.last_sent_at nulls first
+             limit greatest(1, least(coalesce(max_users, 100), 100))) due
+      join auth.users u on u.id = due.user_id
+     where u.email is not null), '[]'::jsonb);
+end $$;
+
+-- Marks users as handled for this week (sent, or nothing to send)
+create or replace function public.weekly_digest_sent(job_key text, user_ids uuid[])
+returns integer language plpgsql security definer set search_path = '' as $$
+declare
+  n integer;
+begin
+  perform private.check_job_key(job_key);
+  update public.email_prefs set last_sent_at = now() where user_id = any(user_ids);
+  get diagnostics n = row_count;
+  return n;
+end $$;
+
+revoke all on function public.weekly_digest_due(text, integer) from public;
+revoke all on function public.weekly_digest_sent(text, uuid[]) from public;
+grant execute on function public.weekly_digest_due(text, integer) to anon;
+grant execute on function public.weekly_digest_sent(text, uuid[]) to anon;

@@ -12,7 +12,20 @@ const LAST_EMAIL_KEY = "koc.signin.email";
 const CODE = /^\d{6,10}$/;
 
 /** Sign in with an email link or code, or manage the signed-in account. */
-export function createAccountDialog(app: App, account: Account, onAccountChange: () => void) {
+export function createAccountDialog(app: App, account: Account, onAccountChange: () => void, sendSample?: () => Promise<string>) {
+  /** The weekly check-in setting: null while loading, undefined when it couldn't be loaded */
+  let weekly: boolean | null | undefined = null;
+  let weeklyBusy = false;
+
+  async function loadWeekly() {
+    weekly = null;
+    try {
+      weekly = await account.weeklyCheckin();
+    } catch {
+      weekly = undefined;
+    }
+    if (dialog.open && account.signedIn) render();
+  }
   let sentTo: string | null = null;
   /** True when the user came to enter a code from an earlier email, so nothing was sent just now */
   let codeOnly = false;
@@ -268,6 +281,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
           h("span", { class: "muted" }, icon("cloud", 14), count === null ? " Synced" : ` ${count} course${count === 1 ? "" : "s"}, synced`),
         ),
       ),
+      weeklySection(),
       h(
         "div",
         { class: "account-actions" },
@@ -302,6 +316,75 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
         deleteBtn,
       ),
     );
+
+    function weeklySection(): HTMLElement {
+      const box = h("input", {
+        attrs: { type: "checkbox", id: "account-weekly", checked: weekly === true, disabled: weekly == null || weeklyBusy, "aria-describedby": "account-weekly-help" },
+        on: {
+          change: async () => {
+            const enabled = box.checked;
+            weeklyBusy = true;
+            render();
+            try {
+              await account.setWeeklyCheckin(enabled);
+              weekly = enabled;
+              toast(enabled ? "Weekly check-in on: look out for it on Monday morning." : "Weekly check-in off.", { tone: "success" });
+            } catch (err) {
+              toast(errorMessage(err), { tone: "error" });
+            } finally {
+              weeklyBusy = false;
+              render();
+            }
+          },
+        },
+      });
+      const sample =
+        sendSample &&
+        h(
+          "button",
+          {
+            class: "btn btn-ghost btn-sm",
+            attrs: { type: "button" },
+            on: {
+              click: async () => {
+                sample!.disabled = true;
+                try {
+                  const to = await sendSample();
+                  toast(`Sample sent to ${to}. It shows this week's plan.`, { tone: "success" });
+                } catch (err) {
+                  toast(errorMessage(err), { tone: "error" });
+                } finally {
+                  sample!.disabled = false;
+                }
+              },
+            },
+          },
+          icon("mail", 16),
+          h("span", {}, "Send me a sample"),
+        );
+      return h(
+        "div",
+        { class: "account-weekly" },
+        h(
+          "label",
+          { class: "account-switch", attrs: { for: "account-weekly" } },
+          box,
+          h(
+            "span",
+            {},
+            h("strong", {}, "Weekly check-in email"),
+            h(
+              "span",
+              { class: "muted", attrs: { id: "account-weekly-help" } },
+              weekly === undefined
+                ? "Couldn't load this setting. Close and reopen to try again."
+                : "Every Monday morning: your study sessions for the week, anything to catch up on, and how you're tracking. Unsubscribe any time.",
+            ),
+          ),
+        ),
+        sample,
+      );
+    }
 
     async function onDelete() {
       // Two-step: the first click arms the button, the second deletes
@@ -347,6 +430,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
   }
 
   account.subscribe(() => {
+    if (account.signedIn && weekly === null && dialog.open) void loadWeekly();
     if (account.signedIn) {
       sentTo = null;
       codeOnly = false;
@@ -358,6 +442,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
   });
 
   function open() {
+    if (account.signedIn) void loadWeekly();
     render();
     dialog.showModal();
   }

@@ -175,6 +175,15 @@ export class CoachSession {
     return body;
   }
 
+  /** Emails the signed-in user a sample of their weekly check-in. Returns the address it went to. */
+  async sendSampleDigest(): Promise<string> {
+    if (!this.configured) throw new CoachError("Coach isn't connected, so emails can't be sent.", "config");
+    const response = await this.fetchWithAuth("/digest/test", { method: "POST" });
+    const body = (await response.json().catch(() => null)) as { ok?: boolean; to?: string; error?: string; code?: string } | null;
+    if (!response.ok || !body?.ok) throw new CoachError(body?.error ?? `Couldn't send the email (HTTP ${response.status}).`, body?.code);
+    return body.to ?? "";
+  }
+
   /** Asks the proxy how many messages are left today (counts nothing). */
   async refreshUsage(): Promise<void> {
     if (!this.configured) return;

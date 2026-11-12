@@ -139,4 +139,30 @@ describe("sign-in dialog", () => {
     expect(el.textContent).toContain("That code didn't work.");
     expect(account.state.status).toBe("signed-out");
   });
+
+  it("shows the weekly check-in switch when signed in, saves changes, and sends a sample", async () => {
+    const account = fakeAccount();
+    account.state = { status: "signed-in", userId: "u1", email: "learner@example.com" };
+    const extra = account as unknown as Record<string, unknown>;
+    extra.weeklyCheckin = vi.fn().mockResolvedValue(false);
+    extra.setWeeklyCheckin = vi.fn().mockResolvedValue(undefined);
+    const sendSample = vi.fn().mockResolvedValue("learner@example.com");
+    const dialog = createAccountDialog(fakeApp, account as unknown as Account, () => {}, sendSample);
+    document.body.replaceChildren(dialog.el);
+    dialog.open();
+    await flush();
+
+    const box = dialog.el.querySelector<HTMLInputElement>("#account-weekly")!;
+    expect(box.checked).toBe(false);
+    expect(box.disabled).toBe(false);
+    box.checked = true;
+    box.dispatchEvent(new Event("change"));
+    await flush();
+    expect(extra.setWeeklyCheckin).toHaveBeenCalledWith(true);
+    expect(dialog.el.querySelector<HTMLInputElement>("#account-weekly")!.checked).toBe(true);
+
+    [...dialog.el.querySelectorAll("button")].find((b) => b.textContent?.includes("Send me a sample"))!.click();
+    await flush();
+    expect(sendSample).toHaveBeenCalled();
+  });
 });

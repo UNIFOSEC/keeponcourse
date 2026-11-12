@@ -5,8 +5,9 @@
   "compatibility_date": "2026-10-01",
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
-  // Daily at 00:15 UTC: store yesterday's anonymous Coach totals (src/stats.ts)
-  "triggers": { "crons": ["15 0 * * *"] },
+  // 00:15 UTC daily: store yesterday's anonymous Coach totals (src/stats.ts).
+  // Hourly at :05: send weekly check-in emails to users whose Monday morning it is (src/digest.ts).
+  "triggers": { "crons": ["15 0 * * *", "5 * * * *"] },
   "vars": {
     // Origins allowed to call Coach. Add your GitHub Pages origin before deploying.
     "ALLOWED_ORIGINS": "https://keeponcourse.com,https://www.keeponcourse.com,https://unifosec.github.io,http://localhost:5173,http://localhost:4173",
@@ -17,6 +18,12 @@
     // user's own sign-in token to the database, so no secret key is needed.
     "SUPABASE_URL": "https://zehsfpjychsbkexrdscn.supabase.co",
     "SUPABASE_PUBLISHABLE_KEY": "sb_publishable_kzJIm8XqyeH-gK7JuUV25g_sB2gZZvg",
+
+    // Weekly check-in email (src/digest.ts). Sending also needs two secrets,
+    // RESEND_API_KEY and DIGEST_JOB_KEY (see the README); without them it stays off.
+    "APP_URL": "https://keeponcourse.com",
+    "PUBLIC_URL": "https://codecrafthub-coach.adatt.workers.dev",
+    "DIGEST_FROM": "KeepOnCourse <hello@keeponcourse.com>",
 
     // Daily Coach allowances (reset at midnight UTC)
     "USER_DAILY_LIMIT": "60",

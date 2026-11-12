@@ -54,7 +54,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   const catchUpDialog = createCatchUpDialog(app);
   const panel = createCoursePanel(app, (course) => planWizard.open(course), (course) => catchUpDialog.open(course));
   const settings = createSettingsDialog(app);
-  const accountDialog = createAccountDialog(app, app.account, () => coach.reset());
+  const accountDialog = createAccountDialog(app, app.account, () => coach.reset(), coach.configured ? () => coach.sendSampleDigest() : undefined);
   const importDialog = createImportDialog(app);
   const ctx: Ctx = {
     app,
