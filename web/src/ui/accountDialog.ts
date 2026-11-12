@@ -164,7 +164,16 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
         on: {
           submit: async (event) => {
             event.preventDefault();
-            const to = codeOnly ? emailInput.value.trim() : address;
+            // A code typed into the email box: move it to the code box
+            const typed = emailInput.value.trim();
+            if (codeOnly && !code.value.trim() && CODE.test(typed.replace(/[\s-]/g, ""))) {
+              code.value = typed;
+              emailInput.value = "";
+              message.textContent = "Got the code. Now enter the email address it was sent to.";
+              emailInput.focus();
+              return;
+            }
+            const to = codeOnly ? typed : address;
             if (!EMAIL.test(to)) {
               message.textContent = "Enter the email address the code was sent to.";
               emailInput.focus();
@@ -194,11 +203,12 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
           },
         },
       },
-      codeOnly && h("label", { class: "field-label", attrs: { for: "account-code-email" } }, "Email"),
-      codeOnly && emailInput,
+      // The code comes first: it's what people arrive here to type
       h("label", { class: "field-label", attrs: { for: "account-code" } }, "Sign-in code"),
       code,
       h("p", { class: "muted account-code-help", attrs: { id: "account-code-help" } }, "The code works on any device, even if the link opened somewhere else."),
+      codeOnly && h("label", { class: "field-label", attrs: { for: "account-code-email" } }, "Email it was sent to"),
+      codeOnly && emailInput,
       message,
       submit,
     );
@@ -209,7 +219,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
         { class: "account-sent" },
         h("span", { class: "account-sent-icon" }, icon("mail", 26)),
         codeOnly
-          ? h("p", {}, "Enter your email and the code from your sign-in email.")
+          ? h("p", {}, "Enter the code from your sign-in email, and the email address it was sent to.")
           : h("p", {}, "We sent a sign-in link and code to ", h("strong", {}, address), "."),
         !codeOnly && h("p", { class: "muted" }, "Open the link in this browser, or type the code below. You can close this window; the app updates as soon as you're in."),
       ),
@@ -230,7 +240,7 @@ export function createAccountDialog(app: App, account: Account, onAccountChange:
         "Use a different email",
       ),
     );
-    requestAnimationFrame(() => (codeOnly && !address ? emailInput : code).focus());
+    requestAnimationFrame(() => code.focus());
   }
 
   function renderSignedIn(email: string) {

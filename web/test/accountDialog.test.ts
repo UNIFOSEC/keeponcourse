@@ -73,6 +73,27 @@ describe("sign-in dialog", () => {
     expect(account.verifyCode).toHaveBeenCalledWith("learner@example.com", "123456");
   });
 
+  it("puts the code box first, and rescues a code typed into the email box", async () => {
+    const { account, $, button, el } = setup();
+    button("I already have a code").click();
+    const fields = [...el.querySelectorAll("form input")].map((i) => i.id);
+    expect(fields).toEqual(["account-code", "account-code-email"]);
+
+    // The code went into the email box by mistake
+    $<HTMLInputElement>("#account-code-email").value = "123 456";
+    button("Sign in with code").click();
+    await flush();
+    expect($<HTMLInputElement>("#account-code").value).toBe("123 456");
+    expect($<HTMLInputElement>("#account-code-email").value).toBe("");
+    expect(el.textContent).toContain("Now enter the email address it was sent to.");
+    expect(account.verifyCode).not.toHaveBeenCalled();
+
+    $<HTMLInputElement>("#account-code-email").value = "learner@example.com";
+    button("Sign in with code").click();
+    await flush();
+    expect(account.verifyCode).toHaveBeenCalledWith("learner@example.com", "123456");
+  });
+
   it("fills in an email typed before choosing to enter a code", () => {
     const { $, button } = setup();
     $<HTMLInputElement>("#account-email").value = "learner@example.com";
