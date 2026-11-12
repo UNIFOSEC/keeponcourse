@@ -500,3 +500,109 @@ revoke all on function public.weekly_digest_due(text, integer) from public;
 revoke all on function public.weekly_digest_sent(text, uuid[]) from public;
 grant execute on function public.weekly_digest_due(text, integer) to anon;
 grant execute on function public.weekly_digest_sent(text, uuid[]) to anon;
+
+-- -------------------------------------------------------------- feedback
+
+-- Feedback from signed-in users, read and answered by the site owner
+-- (accounts in stats_viewers) in the private Stats page. Users see their
+-- own feedback and the replies to it. Nobody can read or write this table
+-- directly; everything goes through the functions below.
+create table if not exists public.feedback (
+  id          bigint generated always as identity primary key,
+  user_id     uuid not null references auth.users (id) on delete cascade,
+  kind        text not null check (kind in ('idea', 'problem', 'praise')),
+  message     text not null check (char_length(btrim(message)) between 1 and 2000),
+  -- Optional app details the user chose to include (page, version, device, a few counts)
+  context     jsonb check (context is null or (jsonb_typeof(context) = 'object' and octet_length(context::text) <= 2048)),
+  status      text not null default 'new' check (status in ('new', 'planned', 'done', 'closed')),
+  reply       text check (reply is null or char_length(reply) <= 2000),
+  replied_at  timestamptz,
+  reply_seen  boolean not null default true,
+  created_at  timestamptz not null default now()
+);
+create index if not exists feedback_user_idx on public.feedback (user_id, created_at desc);
+create index if not exists feedback_status_idx on public.feedback (status, created_at desc);
+alter table public.feedback enable row level security;
+revoke all on public.feedback from anon, authenticated;
+
+-- Sends feedback as the caller (at most 10 a day). Returns the new id.
+create or replace function public.submit_feedback(kind text, message text, context jsonb default null)
+returns bigint language plpgsql security definer set search_path = '' as $$
+declare
+  new_id bigint;
+begin
+  if auth.uid() is null then
+    raise exception 'Not signed in.' using errcode = 'insufficient_privilege';
+  end if;
+  if (select count(*) from public.feedback f
+       where f.user_id = auth.uid() and f.created_at > now() - interval '1 day') >= 10 then
+    raise exception 'You''ve sent a lot of feedback today. Please try again tomorrow.' using errcode = 'check_violation';
+  end if;
+  insert into public.feedback (user_id, kind, message, context)
+  values (auth.uid(), submit_feedback.kind, btrim(submit_feedback.message), submit_feedback.context)
+  returning id into new_id;
+  return new_id;
+end $$;
+
+-- The caller's own feedback, newest first, with replies
+create or replace function public.my_feedback()
+returns jsonb language sql stable security definer set search_path = '' as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', f.id, 'kind', f.kind, 'message', f.message, 'status', f.status,
+           'reply', f.reply, 'replied_at', f.replied_at, 'reply_seen', f.reply_seen, 'created_at', f.created_at)
+         order by f.created_at desc), '[]'::jsonb)
+    from (select * from public.feedback where user_id = auth.uid() order by created_at desc limit 50) f;
+$$;
+
+-- Marks the caller's replies as read
+create or replace function public.mark_feedback_replies_seen()
+returns void language sql security definer set search_path = '' as $$
+  update public.feedback set reply_seen = true where user_id = auth.uid() and not reply_seen;
+$$;
+
+-- For the site owner: feedback with its context, newest first. No names or emails.
+create or replace function public.admin_feedback(filter_status text default null, max_rows integer default 200)
+returns jsonb language plpgsql stable security definer set search_path = '' as $$
+begin
+  if auth.uid() is null or not exists (select 1 from public.stats_viewers v where v.user_id = auth.uid()) then
+    raise exception 'Not allowed.' using errcode = 'insufficient_privilege';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', f.id, 'kind', f.kind, 'message', f.message, 'context', f.context, 'status', f.status,
+             'reply', f.reply, 'replied_at', f.replied_at, 'created_at', f.created_at,
+             -- A short, stable label per account, so several messages from one person can be grouped
+             'author', substr(md5(f.user_id::text), 1, 6),
+             'author_since', (select (u.created_at at time zone 'utc')::date from auth.users u where u.id = f.user_id))
+           order by f.created_at desc)
+      from (select * from public.feedback
+             where filter_status is null or status = filter_status
+             order by created_at desc
+             limit greatest(1, least(coalesce(max_rows, 200), 500))) f), '[]'::jsonb);
+end $$;
+
+-- For the site owner: sets the status, and optionally a reply (shown to the user)
+create or replace function public.admin_update_feedback(feedback_id bigint, new_status text, new_reply text default null)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null or not exists (select 1 from public.stats_viewers v where v.user_id = auth.uid()) then
+    raise exception 'Not allowed.' using errcode = 'insufficient_privilege';
+  end if;
+  update public.feedback f set
+    status     = new_status,
+    reply      = case when new_reply is null then f.reply else nullif(btrim(new_reply), '') end,
+    replied_at = case when new_reply is not null and nullif(btrim(new_reply), '') is distinct from f.reply then now() else f.replied_at end,
+    reply_seen = case when new_reply is not null and nullif(btrim(new_reply), '') is distinct from f.reply and nullif(btrim(new_reply), '') is not null then false else f.reply_seen end
+  where f.id = feedback_id;
+end $$;
+
+revoke all on function public.submit_feedback(text, text, jsonb) from public, anon;
+revoke all on function public.my_feedback() from public, anon;
+revoke all on function public.mark_feedback_replies_seen() from public, anon;
+revoke all on function public.admin_feedback(text, integer) from public, anon;
+revoke all on function public.admin_update_feedback(bigint, text, text) from public, anon;
+grant execute on function public.submit_feedback(text, text, jsonb) to authenticated;
+grant execute on function public.my_feedback() to authenticated;
+grant execute on function public.mark_feedback_replies_seen() to authenticated;
+grant execute on function public.admin_feedback(text, integer) to authenticated;
+grant execute on function public.admin_update_feedback(bigint, text, text) to authenticated;

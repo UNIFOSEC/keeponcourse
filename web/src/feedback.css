@@ -1,0 +1,205 @@
+/* Feedback: the sidebar button, the dialog, and the owner's inbox on the Stats page. Uses tokens from styles.css. */
+
+.feedback-icon {
+  position: relative;
+  display: inline-grid;
+}
+.feedback-dot {
+  position: absolute;
+  top: -3px;
+  right: -4px;
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  box-shadow: 0 0 0 2px var(--surface);
+}
+
+.feedback-body {
+  display: grid;
+  gap: 16px;
+}
+.feedback-body > p {
+  margin: 0;
+}
+
+.feedback-kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.feedback-kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: 999px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  color: var(--text-2);
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.feedback-kind[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+.feedback-context {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 14px;
+  cursor: pointer;
+}
+.feedback-context input {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+  accent-color: var(--accent);
+}
+.feedback-context > span {
+  display: grid;
+  gap: 2px;
+}
+.feedback-context-preview {
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.feedback-history h3 {
+  margin: 4px 0 10px;
+  font-size: 14px;
+  font-weight: 700;
+}
+.feedback-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 10px;
+}
+.feedback-item {
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+}
+.feedback-item.has-unread {
+  border-color: var(--accent);
+}
+.feedback-item-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.feedback-text {
+  margin: 6px 0 0;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.feedback-status {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  font-weight: 600;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+.feedback-status.status-planned {
+  background: var(--ip-soft);
+  color: var(--ip);
+}
+.feedback-status.status-done {
+  background: var(--done-soft);
+  color: var(--done);
+}
+.feedback-reply {
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  font-size: 14px;
+}
+.feedback-reply strong {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--accent-text);
+  font-size: 13px;
+}
+.feedback-reply p {
+  margin: 4px 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.feedback-new {
+  margin-left: auto;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+}
+
+/* ------------------------------------------------- owner's inbox (Stats page) */
+
+.inbox-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+.inbox-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+.inbox-item {
+  display: grid;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  background: var(--surface);
+}
+.inbox-item.status-new {
+  border-left: 3px solid var(--accent);
+}
+.inbox-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 12.5px;
+  color: var(--text-3);
+}
+.inbox-meta strong {
+  color: var(--text);
+  font-size: 13.5px;
+}
+.inbox-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+}
+.inbox-controls .input.textarea {
+  flex: 1 1 260px;
+  min-height: 44px;
+}
+.inbox-controls .select {
+  width: auto;
+}

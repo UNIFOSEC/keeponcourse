@@ -1,6 +1,7 @@
 import { CoachError } from "../coach/session";
 import { button, emptyState, pageHeader, type Ctx, type View } from "../ui/components";
 import { h, setChildren, type Child } from "../ui/dom";
+import { createFeedbackInbox } from "../ui/feedbackInbox";
 import { icon, type IconName } from "../ui/icons";
 
 /**
@@ -58,6 +59,7 @@ const sum = <T>(items: T[], pick: (item: T) => number) => items.reduce((total, i
 
 export function createStats(ctx: Ctx): View {
   const body = h("div", { class: "stats-body" });
+  const inbox = createFeedbackInbox(ctx.app);
   const refresh = button("Refresh", () => void load(), { iconName: "refresh" });
   const el = h(
     "div",
@@ -107,7 +109,8 @@ export function createStats(ctx: Ctx): View {
           : emptyState("alert", "Couldn't load statistics", state.message, button("Try again", () => void load(), { iconName: "refresh" })),
       );
     }
-    setChildren(body, ...dashboard(state.stats));
+    setChildren(body, ...dashboard(state.stats), inbox.el);
+    void inbox.load();
   }
 
   // Reload when the signed-in account changes

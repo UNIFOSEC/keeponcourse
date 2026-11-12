@@ -11,6 +11,7 @@ import { h, isTypingTarget } from "./ui/dom";
 import { icon, logo, type IconName } from "./ui/icons";
 import { createImportDialog } from "./ui/importDialog";
 import { createCatchUpDialog } from "./ui/catchUpDialog";
+import { createFeedbackDialog } from "./ui/feedbackDialog";
 import { createPlanWizard } from "./ui/planWizard";
 import { createSettingsDialog } from "./ui/settingsDialog";
 import { themeToggle } from "./ui/theme";
@@ -83,6 +84,26 @@ export function mountShell(root: HTMLElement, app: App): void {
 
   const sourceBtn = h("button", { class: "sidebar-btn source-btn", attrs: { type: "button" }, on: { click: () => settings.open() } });
   const accountBtn = h("button", { class: "sidebar-btn account-btn", attrs: { type: "button" }, on: { click: () => accountDialog.open() } });
+  // Feedback to the developer (signed-in users); a dot marks unread replies
+  const feedbackDot = h("span", { class: "feedback-dot", attrs: { hidden: true } });
+  let replyToastShown = false;
+  const feedbackDialog = createFeedbackDialog(app, (unread) => {
+    feedbackDot.hidden = unread === 0;
+    feedbackBtn.setAttribute("aria-label", unread ? `Feedback: ${unread} new repl${unread === 1 ? "y" : "ies"} from the developer` : "Send feedback to the developer");
+    feedbackBtn.title = feedbackBtn.getAttribute("aria-label") ?? "";
+    if (unread && !replyToastShown) {
+      replyToastShown = true;
+      toast("💬 The developer replied to your feedback.", { action: { label: "Read", run: () => feedbackDialog.open() } });
+    }
+  });
+  const feedbackBtn = h(
+    "button",
+    { class: "sidebar-btn feedback-btn", attrs: { type: "button", "aria-label": "Send feedback to the developer", title: "Send feedback to the developer" }, on: { click: () => feedbackDialog.open() } },
+    h("span", { class: "feedback-icon" }, icon("compose", 18), feedbackDot),
+    h("span", { class: "label" }, "Feedback"),
+  );
+  feedbackBtn.hidden = true;
+
   // Shown only when the browser offers installing (Chrome, Edge, Android)
   const installBtn = h(
     "button",
@@ -114,7 +135,7 @@ export function mountShell(root: HTMLElement, app: App): void {
       navLink("coach", "sparkles"),
       navLink("about", "info"),
     ),
-    h("div", { class: "sidebar-footer" }, installBtn, accountsEnabled && accountBtn, sourceBtn, themeToggle()),
+    h("div", { class: "sidebar-footer" }, installBtn, feedbackBtn, accountsEnabled && accountBtn, sourceBtn, themeToggle()),
     h(
       "nav",
       { class: "sidebar-legal", attrs: { "aria-label": "Legal" } },
@@ -127,7 +148,7 @@ export function mountShell(root: HTMLElement, app: App): void {
   const skipLink = h("button", { class: "skip-link", attrs: { type: "button" }, on: { click: () => main.focus() } }, "Skip to content");
 
   const appEl = h("div", { class: "app" }, sidebar, main);
-  root.replaceChildren(skipLink, appEl, panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el);
+  root.replaceChildren(skipLink, appEl, panel.el, settings.el, accountDialog.el, importDialog.el, planWizard.el, catchUpDialog.el, feedbackDialog.el);
   initToasts(document.body);
 
   function renderSource() {
@@ -145,8 +166,18 @@ export function mountShell(root: HTMLElement, app: App): void {
     sourceBtn.title = "Change data source";
   }
 
+  let feedbackUser: string | null = null;
   function renderAccount() {
     const state = app.account.state;
+    // Feedback is for signed-in users; check for unread replies once per sign-in
+    feedbackBtn.hidden = state.status !== "signed-in";
+    const userId = state.status === "signed-in" ? state.userId : null;
+    if (userId !== feedbackUser) {
+      feedbackUser = userId;
+      replyToastShown = false;
+      if (userId) void feedbackDialog.refreshUnread();
+      else feedbackDot.hidden = true;
+    }
     if (state.status === "signed-in") {
       accountBtn.replaceChildren(
         h("span", { class: "account-avatar account-avatar-sm" }, (state.email[0] ?? "?").toUpperCase()),

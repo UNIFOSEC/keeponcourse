@@ -48,6 +48,7 @@ export function createPrivacy(_ctx: Ctx): View {
         "Your courses and study plans (names, descriptions, dates, statuses, modules and scheduled sessions).",
         "If you turn on calendar sync: a private calendar link and your time zone.",
         "If you turn on the weekly check-in email: that setting, your time zone, and when it was last sent.",
+        "Feedback you send, and any replies to it.",
         "Daily counts of your Coach messages and of the AI tokens they used, so the daily allowance works and we know what Coach costs to run.",
       ),
       p("This data is stored with Supabase, our database and sign-in provider. Each account can only ever read its own data; this is enforced by the database itself."),
@@ -76,6 +77,13 @@ export function createPrivacy(_ctx: Ctx): View {
       "Weekly check-in email",
       p(
         "It's off unless you turn it on in your account. Every Monday morning (in your time zone) it lists your study sessions for the week, any sessions to catch up on, and when each plan finishes. Every email has a one-click unsubscribe link, and you can turn it off in your account at any time.",
+      ),
+    ),
+
+    section(
+      "Feedback",
+      p(
+        "If you send feedback from the app, we store your message with your account so we can read it and reply in the app. If you leave \"Include app details\" on, it also includes the page you were on, the app version, the type of device, whether it's installed, and a few counts (courses, plans, your streak); you can turn that off before sending. Only the site owner reads feedback, without your name or email address. It's deleted when you delete your account.",
       ),
     ),
 
