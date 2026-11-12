@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { buildDigest, runWeeklyDigest, type DigestUser } from "../src/digest";
+import { buildDigest, lastWeekLine, runWeeklyDigest, type DigestUser } from "../src/digest";
 import worker, { type Env } from "../src/index";
 import { memoryKv } from "./memoryKv";
 
@@ -52,6 +52,14 @@ describe("buildDigest", () => {
     expect(email.text).toContain("1 missed session");
     expect(email.text).toContain("On track: finishing Nov 23, 2026, 7 days before your target.");
     expect(email.text).toContain("Unsubscribe: https://coach.example/unsubscribe/x");
+  });
+
+  it("recaps last week, and shows a streak of 2 weeks or more", () => {
+    expect(buildDigest(user(), { now: NOW })!.text).toContain("Last week: 1 of 2 sessions done");
+    const done = (date: string) => ({ date, module: 0, minutes: 60, status: "done" });
+    const courses = [{ name: "X", target_date: "2026-12-31", status: "In Progress", plan: { modules: [{ title: "M" }], sessions: [done("2026-10-28"), done("2026-11-03"), done("2026-11-10"), done("2026-11-12")] } }];
+    expect(lastWeekLine(courses, "2026-11-16", "2026-11-16")).toBe("Last week: 2 of 2 sessions done · 3-week streak");
+    expect(lastWeekLine([], "2026-11-16", "2026-11-16")).toBeNull();
   });
 
   it("escapes course and module names in the HTML", () => {

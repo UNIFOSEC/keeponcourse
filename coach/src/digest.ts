@@ -115,6 +115,35 @@ function courseWeek(course: DigestCourse, today: string, monday: string, sunday:
   };
 }
 
+/** Every valid session across the user's plans (for last week's tally and the streak). */
+function allSessions(courses: DigestCourse[]): Session[] {
+  const out: Session[] = [];
+  for (const course of courses) {
+    const plan = (course.plan ?? {}) as { sessions?: unknown };
+    if (!Array.isArray(plan.sessions)) continue;
+    for (const s of plan.sessions as Session[]) if (s && typeof s.date === "string" && DATE.test(s.date)) out.push(s);
+  }
+  return out;
+}
+
+/** "Last week: 3 of 4 sessions done · 5-week streak", or null when there's nothing to report. */
+export function lastWeekLine(courses: DigestCourse[], today: string, monday: string): string | null {
+  const sessions = allSessions(courses);
+  const lastMonday = addDays(monday, -7);
+  const lastWeek = sessions.filter((s) => s.date >= lastMonday && s.date < monday && s.status !== "skipped");
+  const done = lastWeek.filter((s) => s.status === "done").length;
+
+  // Weeks in a row with a done session, back from last week (this week counts once it has one)
+  const weeks = new Set(sessions.filter((s) => s.status === "done" && s.date <= today).map((s) => addDays(s.date, -((new Date(isoToUtc(s.date)).getUTCDay() + 6) % 7))));
+  let streak = weeks.has(monday) ? 1 : 0;
+  for (let week = lastMonday; weeks.has(week); week = addDays(week, -7)) streak++;
+
+  const parts: string[] = [];
+  if (lastWeek.length) parts.push(`Last week: ${done} of ${lastWeek.length} session${lastWeek.length === 1 ? "" : "s"} done`);
+  if (streak >= 2) parts.push(`${streak}-week streak`);
+  return parts.length ? parts.join(" · ") : null;
+}
+
 /**
  * The email for one user, or null when there's nothing to say (no sessions
  * this week and nothing missed). `sample` always returns an email.
@@ -129,13 +158,14 @@ export function buildDigest(user: DigestUser, { now = new Date(), appUrl = "http
   const courses = (Array.isArray(user.courses) ? user.courses : []).map((c) => courseWeek(c, today, monday, sunday)).filter((c): c is CourseWeek => c !== null);
   if (!courses.length && !sample) return null;
 
+  const recap = lastWeekLine(Array.isArray(user.courses) ? user.courses : [], today, monday);
   const sessions = courses.reduce((n, c) => n + c.week.length, 0);
   const missed = courses.reduce((n, c) => n + c.missed, 0);
   const subject = `${sample ? "[Sample] " : ""}Your study week: ${sessions} session${sessions === 1 ? "" : "s"}${missed ? ` · ${missed} to catch up` : ""}`;
   const home = `${appUrl.replace(/\/+$/, "")}/#/`;
 
   // ------------------------------------------------------------------ text
-  const lines: string[] = [`Your study week (${dayLabel(monday)} – ${dayLabel(sunday)})`, ""];
+  const lines: string[] = [`Your study week (${dayLabel(monday)} – ${dayLabel(sunday)})`, ...(recap ? [recap] : []), ""];
   if (!courses.length) lines.push("No study sessions this week, and nothing to catch up on.", "");
   for (const c of courses) {
     lines.push(c.name);
@@ -180,6 +210,7 @@ export function buildDigest(user: DigestUser, { now = new Date(), appUrl = "http
 <tr><td style="padding:18px 32px 0;">
   <h1 style="margin:0 0 4px;font-size:21px;line-height:1.3;font-weight:800;">Your study week</h1>
   <p style="margin:0;font-size:14px;${muted}">${escapeHtml(dayLabel(monday))} – ${escapeHtml(dayLabel(sunday))}</p>
+  ${recap ? `<p style="margin:10px 0 0;display:inline-block;padding:6px 12px;border-radius:999px;background:#dcfce7;color:#157a3c;font-size:13px;font-weight:600;">${escapeHtml(recap)}</p>` : ""}
 </td></tr>
 ${courses.length ? courseBlocks : `<tr><td style="padding:20px 32px 0;"><p style="margin:0;font-size:14px;${muted}">No study sessions this week, and nothing to catch up on. Plan your next course any time.</p></td></tr>`}
 <tr><td style="padding:24px 32px 0;"><a href="${escapeHtml(home)}" style="display:inline-block;padding:12px 22px;border-radius:10px;background:#7c3aed;color:#ffffff;font-size:15px;font-weight:700;text-decoration:none;">Open KeepOnCourse</a></td></tr>

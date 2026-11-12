@@ -1,5 +1,5 @@
 import { dueInfo, formatLongToday, formatTime, greeting, isOverdue, todayISO } from "../dates";
-import { missedSessions } from "../plan";
+import { missedSessions, studyStreak, weekProgress } from "../plan";
 import { checkInControls } from "../ui/checkIn";
 import { readString, writeString } from "../data/storage";
 import { STATUSES, STATUS_KEY, type Course } from "../types";
@@ -155,12 +155,27 @@ export function createOverview(ctx: Ctx): View {
       .filter((c) => c.plan && c.status !== "Completed")
       .map((course) => ({ course, missed: missedSessions(course.plan!, today).length }))
       .filter((b) => b.missed > 0);
-    if (!todays.length && !behind.length) return null;
+    const plans = courses.filter((c) => c.plan).map((c) => c.plan!);
+    const week = weekProgress(plans, today);
+    const streak = studyStreak(plans, today);
+    if (!todays.length && !behind.length && week.total === 0) return null;
 
     return h(
       "section",
       { class: "card study-today", attrs: { "aria-labelledby": "study-today-title" } },
       h("header", { class: "card-head" }, h("h2", { attrs: { id: "study-today-title" } }, "Today's study"), h("a", { class: "link", attrs: { href: "#/calendar" } }, "Calendar")),
+      week.total > 0 &&
+        h(
+          "div",
+          { class: "study-week" },
+          h(
+            "div",
+            { class: "study-week-text" },
+            h("strong", {}, `This week: ${week.done} of ${week.total} session${week.total === 1 ? "" : "s"} done`),
+            streak >= 2 && h("span", { class: "study-streak" }, icon("flag", 14), `${streak}-week streak`),
+          ),
+          weekBar(week.done, week.total),
+        ),
       todays.length > 0 &&
         h(
           "ul",
@@ -199,6 +214,13 @@ export function createOverview(ctx: Ctx): View {
           ),
         ),
     );
+  }
+
+  function weekBar(done: number, total: number): HTMLElement {
+    const pct = total ? Math.round((done / total) * 100) : 0;
+    const fill = h("span", {});
+    fill.style.width = `${pct}%`; // CSSOM, allowed by the strict CSP
+    return h("div", { class: "progress-bar", attrs: { role: "progressbar", "aria-label": "Sessions done this week", "aria-valuemin": 0, "aria-valuemax": total, "aria-valuenow": done } }, fill);
   }
 
   function deadlinesCard(courses: Course[]): HTMLElement {

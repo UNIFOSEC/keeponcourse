@@ -101,6 +101,45 @@ export function missedSessions(plan: StudyPlan, today = todayISO()): PlanSession
   return plan.sessions.filter((s) => s.date < today && !s.status && !plan.modules[s.module]?.done);
 }
 
+/** The Monday of the week containing a date (weeks run Monday to Sunday). */
+export function weekStart(iso: string): string {
+  return addDays(iso, -((weekday(iso) + 6) % 7));
+}
+
+/** This week's sessions across plans: how many are done, out of those not skipped. */
+export function weekProgress(plans: StudyPlan[], today = todayISO()): { done: number; total: number } {
+  const start = weekStart(today);
+  const end = addDays(start, 6);
+  let done = 0;
+  let total = 0;
+  for (const plan of plans) {
+    for (const s of plan.sessions) {
+      if (s.date < start || s.date > end || s.status === "skipped") continue;
+      total++;
+      if (s.status === "done") done++;
+    }
+  }
+  return { done, total };
+}
+
+/**
+ * Weeks in a row with at least one study session done, counting back from
+ * last week. This week adds to the streak once a session is done, but an
+ * unfinished week in progress doesn't break it.
+ */
+export function studyStreak(plans: StudyPlan[], today = todayISO()): number {
+  const weeks = new Set<string>();
+  for (const plan of plans) for (const s of plan.sessions) if (s.status === "done" && s.date <= today) weeks.add(weekStart(s.date));
+  let week = weekStart(today);
+  let streak = weeks.has(week) ? 1 : 0;
+  week = addDays(week, -7);
+  while (weeks.has(week)) {
+    streak++;
+    week = addDays(week, -7);
+  }
+  return streak;
+}
+
 /** Done sessions out of all sessions that aren't skipped. */
 export function sessionProgress(plan: StudyPlan): { done: number; total: number } {
   const counted = plan.sessions.filter((s) => s.status !== "skipped");

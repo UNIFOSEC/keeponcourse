@@ -309,6 +309,22 @@ begin
     'courses',        (select count(*) from public.courses),
     'courses_with_plan', (select count(*) from public.courses where plan is not null),
     'calendar_feeds', (select count(*) from public.calendar_feeds),
+    'weekly_email_subscribers', (select count(*) from public.email_prefs where weekly_checkin),
+    -- Study sessions checked in as done during the last 7 days, and by how many accounts
+    'sessions_done_7d', (
+      select count(*)
+        from public.courses c,
+             jsonb_array_elements(case when jsonb_typeof(c.plan -> 'sessions') = 'array' then c.plan -> 'sessions' else '[]'::jsonb end) s
+       where s ->> 'status' = 'done'
+         and (s ->> 'date') ~ '^\d{4}-\d{2}-\d{2}$'
+         and (s ->> 'date') > (today - 7)::text and (s ->> 'date') <= today::text),
+    'checkin_accounts_7d', (
+      select count(distinct c.user_id)
+        from public.courses c,
+             jsonb_array_elements(case when jsonb_typeof(c.plan -> 'sessions') = 'array' then c.plan -> 'sessions' else '[]'::jsonb end) s
+       where s ->> 'status' = 'done'
+         and (s ->> 'date') ~ '^\d{4}-\d{2}-\d{2}$'
+         and (s ->> 'date') > (today - 7)::text and (s ->> 'date') <= today::text),
     'coach_daily', (
       select jsonb_agg(jsonb_build_object(
                'day', c.day, 'messages', c.messages, 'people', c.people, 'limit_hits', c.limit_hits,

@@ -39,6 +39,10 @@ export interface Stats {
     courses: number;
     courses_with_plan: number;
     calendar_feeds: number;
+    /** Added with the weekly email; missing until the database schema is re-run */
+    weekly_email_subscribers?: number;
+    sessions_done_7d?: number;
+    checkin_accounts_7d?: number;
     coach_daily: CoachDay[];
   };
   anonymous: AnonDay[];
@@ -191,6 +195,12 @@ export function dashboard(stats: Stats): Child[] {
         signal("Hit the daily Coach limit", `${num(limitHits)} times in 30 days`, `People who used all ${stats.limits.user} (signed in) or ${stats.limits.anon} (anonymous) messages in a day: the clearest sign of demand for a bigger allowance.`),
         signal("Courses", `${num(a.courses)} · ${num(a.courses_with_plan)} with a study plan`, "Across all accounts. Demo-mode courses stay in visitors' browsers and aren't counted."),
         signal("Calendar subscriptions", num(a.calendar_feeds), "Accounts that created a calendar subscription link."),
+        signal(
+          "Sessions checked in, 7 days",
+          a.sessions_done_7d === undefined ? "-" : `${num(a.sessions_done_7d)} by ${num(a.checkin_accounts_7d ?? 0)} account${a.checkin_accounts_7d === 1 ? "" : "s"}`,
+          "Study sessions marked done: people actually following their plans.",
+        ),
+        signal("Weekly check-in email", a.weekly_email_subscribers === undefined ? "-" : `${num(a.weekly_email_subscribers)} subscribed`, "Accounts that turned on the Monday email."),
       ),
     ),
 
